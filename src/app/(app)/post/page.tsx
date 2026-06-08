@@ -4,7 +4,7 @@ import { PullForm } from "../_components/pull-form";
 
 export default async function PostPage() {
   const { user } = await requireAppUser();
-  if (user.role !== "manager") {
+  if (user.role === "warehouse") {
     redirect("/feed");
   }
   return (
