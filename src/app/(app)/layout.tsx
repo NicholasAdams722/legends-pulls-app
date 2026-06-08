@@ -1,5 +1,6 @@
 import { requireAppUser } from "@/lib/auth";
 import { TabBar } from "./_components/tab-bar";
+import { SignOutButton } from "./_components/sign-out-button";
 
 export default async function AppLayout({
   children,
@@ -11,13 +12,16 @@ export default async function AppLayout({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="pt-safe sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-900">
-        <div className="px-4 py-2 flex items-center justify-between">
-          <div className="text-xs font-medium text-zinc-300">
+        <div className="px-4 py-2 flex items-center justify-between gap-3">
+          <div className="text-xs font-medium text-zinc-300 truncate">
             Store {store.code}
             <span className="text-zinc-500"> · {store.name}</span>
           </div>
-          <div className="text-[11px] text-zinc-500 truncate max-w-[8rem]">
-            {user.name}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-[11px] text-zinc-500 truncate max-w-[8rem]">
+              {user.name}
+            </div>
+            <SignOutButton />
           </div>
         </div>
       </header>
