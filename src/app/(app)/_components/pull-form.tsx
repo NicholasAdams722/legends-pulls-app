@@ -281,7 +281,7 @@ export function PullForm({
                   : "bg-zinc-900 text-zinc-300 border-zinc-800"
               }`}
             >
-              {t === "soft" ? "Soft goods (sized)" : "Hard goods"}
+              {t === "soft" ? "Clothing (sized)" : "Items"}
             </button>
           ))}
         </div>
@@ -359,7 +359,7 @@ export function PullForm({
                     quantity: Math.max(1, line.quantity - 1),
                   })
                 }
-                className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 text-lg"
+                className="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 text-xl"
               >
                 −
               </button>
@@ -372,14 +372,14 @@ export function PullForm({
                     quantity: Number.isNaN(n) ? 1 : Math.max(1, n),
                   });
                 }}
-                className="w-16 h-10 text-center rounded-lg bg-zinc-900 border border-zinc-800 text-base"
+                className="w-16 h-11 text-center rounded-lg bg-zinc-900 border border-zinc-800 text-base"
               />
               <button
                 type="button"
                 onClick={() =>
                   updateLine(line.key, { quantity: line.quantity + 1 })
                 }
-                className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 text-lg"
+                className="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 text-xl"
               >
                 +
               </button>
@@ -420,19 +420,21 @@ export function PullForm({
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full h-12 rounded-lg bg-emerald-500 text-zinc-950 font-medium disabled:opacity-50"
-      >
-        {busy
-          ? mode === "create"
-            ? "Posting…"
-            : "Saving…"
-          : mode === "create"
-            ? "Post pull"
-            : "Save changes"}
-      </button>
+      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-zinc-950/95 backdrop-blur border-t border-zinc-900">
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full h-14 rounded-xl bg-emerald-500 text-zinc-950 text-base font-semibold disabled:opacity-50 active:scale-[0.99]"
+        >
+          {busy
+            ? mode === "create"
+              ? "Posting…"
+              : "Saving…"
+            : mode === "create"
+              ? "Post pull"
+              : "Save changes"}
+        </button>
+      </div>
 
       {scanningKey && (
         <BarcodeScanner

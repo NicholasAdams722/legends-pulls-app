@@ -11,11 +11,12 @@ export default async function AppLayout({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="pt-safe sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-900">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="text-sm text-zinc-400">
-            Store {store.code} · {store.name}
+        <div className="px-4 py-2 flex items-center justify-between">
+          <div className="text-xs font-medium text-zinc-300">
+            Store {store.code}
+            <span className="text-zinc-500"> · {store.name}</span>
           </div>
-          <div className="text-xs text-zinc-500 truncate max-w-[10rem]">
+          <div className="text-[11px] text-zinc-500 truncate max-w-[8rem]">
             {user.name}
           </div>
         </div>

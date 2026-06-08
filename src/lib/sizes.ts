@@ -1,4 +1,4 @@
-export const DEFAULT_SIZES = ["S", "M", "L", "XL", "2X", "3X"] as const;
+export const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL", "2X", "3X", "4X"] as const;
 export const DEFAULT_COLORS = ["White", "Black"] as const;
 
 export function nextSize(current: string | null, options: string[]): string {

@@ -35,7 +35,7 @@ export function PullCard({ pull }: { pull: FeedPull }) {
         </div>
         {pull.good_type === "hard" && (
           <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-[10px] uppercase tracking-wide">
-            Hard
+            Item
           </div>
         )}
       </div>

@@ -83,7 +83,7 @@ export function FeedList({
             active={typeFilter === t}
             onClick={() => setTypeFilter(t)}
           >
-            {t === "all" ? "All goods" : t === "soft" ? "Soft" : "Hard"}
+            {t === "all" ? "All types" : t === "soft" ? "Clothing" : "Items"}
           </FilterChip>
         ))}
       </div>

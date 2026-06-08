@@ -39,9 +39,15 @@ export default async function EditPullPage({
 
   return (
     <div>
-      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
-        <Link href="/pulls" className="text-sm text-zinc-400">
-          ← My pulls
+      <div className="px-2 pt-2 pb-1">
+        <Link
+          href="/pulls"
+          className="inline-flex items-center gap-1 h-10 px-3 text-sm text-zinc-300 -ml-1"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Back to pulls
         </Link>
       </div>
       <div className="px-4 pb-2">

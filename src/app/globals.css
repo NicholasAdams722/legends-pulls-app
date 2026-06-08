@@ -12,6 +12,20 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Prevent iOS Safari from zooming on focus when font-size < 16px */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Skip the 300ms tap delay on iOS */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
 /* iOS safe-area helpers */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);

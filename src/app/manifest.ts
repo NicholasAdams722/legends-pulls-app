@@ -12,16 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0a0a0a",
     orientation: "portrait",
     icons: [
-      {
-        src: "/icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        src: "/icon-512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
+      // Next.js auto-generates these from src/app/icon.tsx and apple-icon.tsx
+      { src: "/icon", sizes: "192x192", type: "image/png" },
+      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
     ],
   };
 }
