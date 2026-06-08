@@ -1,0 +1,26 @@
+-- Template: after a user signs in via magic link for the first time, an auth.users
+-- row exists but there is no public.users row yet. Run an UPSERT like this once per
+-- person to attach them to a store and a role.
+--
+-- Look up the auth user id in the Supabase dashboard (Authentication > Users).
+
+-- Example: a manager at Store 1 (Legends Gifts)
+insert into public.users (id, name, email, store_id, role)
+select
+  '<AUTH_USER_UUID>'::uuid,
+  'Nick Adams',
+  'njadams.722@gmail.com',
+  s.id,
+  'manager'
+from stores s where s.code = 1
+on conflict (id) do update
+  set name = excluded.name,
+      email = excluded.email,
+      store_id = excluded.store_id,
+      role = excluded.role;
+
+-- Warehouse user example
+-- insert into public.users (id, name, email, store_id, role)
+-- select '<AUTH_USER_UUID>'::uuid, 'Warehouse User', 'wh@example.com', s.id, 'warehouse'
+-- from stores s where s.code = 0
+-- on conflict (id) do update set ...;
