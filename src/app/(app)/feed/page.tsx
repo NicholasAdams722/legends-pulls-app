@@ -1,8 +1,43 @@
-export default function FeedPage() {
+import { requireAppUser } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Store } from "@/lib/types";
+import { FeedList } from "./_components/feed-list";
+import type { FeedPull } from "./_components/pull-card";
+
+export const dynamic = "force-dynamic";
+
+export default async function FeedPage() {
+  const { store } = await requireAppUser();
+  const supabase = await createSupabaseServerClient();
+
+  const [pullsRes, passesRes, storesRes] = await Promise.all([
+    supabase
+      .from("pulls")
+      .select(
+        `id, photo_urls, style_name, good_type, description,
+         from_store:stores!pulls_from_store_id_fkey(*),
+         pull_lines(*)`,
+      )
+      .eq("status", "available")
+      .neq("from_store_id", store.id)
+      .order("created_at", { ascending: false }),
+    supabase.from("pull_passes").select("pull_id").eq("store_id", store.id),
+    supabase.from("stores").select("*").order("code"),
+  ]);
+
+  const passedIds = new Set((passesRes.data ?? []).map((p) => p.pull_id));
+  const pulls = ((pullsRes.data ?? []) as unknown as FeedPull[]).filter(
+    (p) => !passedIds.has(p.id),
+  );
+  const stores = (storesRes.data ?? []) as Store[];
+
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-semibold mb-2">Available</h1>
-      <p className="text-sm text-zinc-500">Feed coming next.</p>
+    <div>
+      <FeedList
+        initialPulls={pulls}
+        stores={stores}
+        ownStoreId={store.id}
+      />
     </div>
   );
 }
