@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { storeColor } from "@/lib/store-colors";
 import type { Store } from "@/lib/types";
 import { PullCard, type FeedPull } from "./pull-card";
 
@@ -19,8 +20,6 @@ export function FeedList({
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "soft" | "hard">("all");
 
-  // Realtime: when any pulls row changes, refresh server data.
-  // Cheap and correct for the v1 traffic level.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
@@ -28,16 +27,12 @@ export function FeedList({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pulls" },
-        () => {
-          router.refresh();
-        },
+        () => router.refresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pull_passes" },
-        () => {
-          router.refresh();
-        },
+        () => router.refresh(),
       )
       .subscribe();
     return () => {
@@ -59,33 +54,38 @@ export function FeedList({
 
   return (
     <div className="flex flex-col">
-      {/* Filters */}
-      <div className="px-4 py-3 flex gap-2 overflow-x-auto border-b border-zinc-900">
-        <FilterChip
-          active={storeFilter === "all"}
-          onClick={() => setStoreFilter("all")}
-        >
-          All stores
-        </FilterChip>
-        {peerStores.map((s) => (
+      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-900">
+        <div className="px-4 py-2.5 flex gap-2 overflow-x-auto">
           <FilterChip
-            key={s.id}
-            active={storeFilter === s.id}
-            onClick={() => setStoreFilter(s.id)}
+            active={storeFilter === "all"}
+            onClick={() => setStoreFilter("all")}
           >
-            Store {s.code}
+            All stores
           </FilterChip>
-        ))}
-        <div className="w-px bg-zinc-800 mx-1" />
-        {(["all", "soft", "hard"] as const).map((t) => (
-          <FilterChip
-            key={t}
-            active={typeFilter === t}
-            onClick={() => setTypeFilter(t)}
-          >
-            {t === "all" ? "All types" : t === "soft" ? "Clothing" : "Items"}
-          </FilterChip>
-        ))}
+          {peerStores.map((s) => {
+            const c = storeColor(s.code);
+            return (
+              <FilterChip
+                key={s.id}
+                active={storeFilter === s.id}
+                activeClass={c.filterActive}
+                onClick={() => setStoreFilter(s.id)}
+              >
+                Store {s.code}
+              </FilterChip>
+            );
+          })}
+          <div className="w-px bg-zinc-800 mx-1" />
+          {(["all", "soft", "hard"] as const).map((t) => (
+            <FilterChip
+              key={t}
+              active={typeFilter === t}
+              onClick={() => setTypeFilter(t)}
+            >
+              {t === "all" ? "All types" : t === "soft" ? "Clothing" : "Items"}
+            </FilterChip>
+          ))}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -106,19 +106,21 @@ export function FeedList({
 function FilterChip({
   active,
   onClick,
+  activeClass,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  activeClass?: string;
   children: React.ReactNode;
 }) {
+  const inactive = "bg-zinc-900 text-zinc-300 border-zinc-800";
+  const defaultActive = "bg-zinc-50 text-zinc-950 border-zinc-50";
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 h-9 px-3 rounded-full text-xs font-medium border ${
-        active
-          ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-          : "bg-zinc-900 text-zinc-300 border-zinc-800"
+      className={`shrink-0 h-9 px-3 rounded-full text-xs font-semibold border ${
+        active ? (activeClass ?? defaultActive) : inactive
       }`}
     >
       {children}
