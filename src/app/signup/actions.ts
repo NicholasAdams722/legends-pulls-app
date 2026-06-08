@@ -34,6 +34,17 @@ export async function signUpWithCodeAction(
     return { error: "That code is already in use. Pick another." };
   }
 
+  // Look up the chosen store to set the right default role
+  const { data: store } = await admin
+    .from("stores")
+    .select("type")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (!store) return { error: "Pick a valid store." };
+  const role: "manager" | "warehouse" = store.type === "warehouse"
+    ? "warehouse"
+    : "manager";
+
   const email = syntheticEmail(code);
   const password = derivePassword(code);
 
@@ -48,13 +59,13 @@ export async function signUpWithCodeAction(
     return { error: createErr?.message ?? "Sign-up failed." };
   }
 
-  // Insert public.users profile (managers self-signup; admin can promote later)
+  // Insert public.users profile
   const { error: profileErr } = await admin.from("users").insert({
     id: created.user.id,
     name,
     email,
     store_id: storeId,
-    role: "manager",
+    role,
     employee_code: code,
   });
   if (profileErr) {

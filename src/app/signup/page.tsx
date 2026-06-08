@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Store } from "@/lib/types";
 import { SignupForm } from "./signup-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
-  // Stores are public-readable, so no auth needed here
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  // Use admin client so an unauthenticated visitor can still see the
+  // store list (RLS on `stores` requires authenticated).
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
     .from("stores")
     .select("*")
-    .eq("type", "retail")
     .order("code");
   const stores = (data ?? []) as Store[];
 
