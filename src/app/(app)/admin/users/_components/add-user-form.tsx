@@ -11,13 +11,13 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
   const [role, setRole] = useState<UserRole>("manager");
 
   function reset() {
     setName("");
-    setEmail("");
+    setCode("");
     setStoreId(stores[0]?.id ?? "");
     setRole("manager");
     setError(null);
@@ -27,7 +27,7 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await addUserAction({ name, email, store_id: storeId, role });
+      const res = await addUserAction({ name, code, store_id: storeId, role });
       if (!res.ok) {
         setError(res.error ?? "Failed");
         return;
@@ -50,7 +50,10 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+    <form
+      onSubmit={submit}
+      className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3"
+    >
       <input
         required
         placeholder="Full name"
@@ -60,12 +63,13 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
       />
       <input
         required
-        type="email"
-        placeholder="email@example.com"
-        autoComplete="off"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base"
+        inputMode="numeric"
+        pattern="\d{4}"
+        maxLength={4}
+        placeholder="4-digit code"
+        value={code}
+        onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base tracking-widest text-center"
       />
       <select
         value={storeId}

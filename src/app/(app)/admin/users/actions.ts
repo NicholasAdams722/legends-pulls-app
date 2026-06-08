@@ -3,56 +3,67 @@
 import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  derivePassword,
+  normalizeCode,
+  syntheticEmail,
+} from "@/lib/auth-code";
 import type { UserRole } from "@/lib/types";
 
 async function requireAdmin() {
   const { user } = await requireAppUser();
-  if (user.role !== "admin") {
-    throw new Error("Not authorized");
-  }
+  if (user.role !== "admin") throw new Error("Not authorized");
   return user;
 }
 
 export async function addUserAction(input: {
-  email: string;
   name: string;
+  code: string;
   store_id: string;
   role: UserRole;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const email = input.email.trim().toLowerCase();
     const name = input.name.trim();
-    if (!email || !name) return { ok: false, error: "Name and email required" };
+    const code = normalizeCode(input.code);
+    if (!name) return { ok: false, error: "Name required" };
+    if (!code) return { ok: false, error: "4-digit code required" };
 
     const admin = createSupabaseAdminClient();
 
-    // Find or create the auth user
-    let userId: string | null = null;
-    const { data: listed } = await admin.auth.admin.listUsers({ perPage: 200 });
-    const existing = listed?.users.find(
-      (u) => u.email?.toLowerCase() === email,
-    );
-    if (existing) {
-      userId = existing.id;
-    } else {
-      const { data: created, error: createErr } =
-        await admin.auth.admin.createUser({ email, email_confirm: true });
-      if (createErr || !created.user) {
-        return { ok: false, error: createErr?.message ?? "create failed" };
-      }
-      userId = created.user.id;
+    // Code uniqueness
+    const { data: existing } = await admin
+      .from("users")
+      .select("id")
+      .eq("employee_code", code)
+      .maybeSingle();
+    if (existing) return { ok: false, error: "That code is already in use" };
+
+    const email = syntheticEmail(code);
+    const password = derivePassword(code);
+
+    const { data: created, error: createErr } =
+      await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+    if (createErr || !created.user) {
+      return { ok: false, error: createErr?.message ?? "create failed" };
     }
 
-    // Upsert the public profile row
-    const { error: upErr } = await admin.from("users").upsert({
-      id: userId,
+    const { error: upErr } = await admin.from("users").insert({
+      id: created.user.id,
       email,
       name,
       store_id: input.store_id,
       role: input.role,
+      employee_code: code,
     });
-    if (upErr) return { ok: false, error: upErr.message };
+    if (upErr) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      return { ok: false, error: upErr.message };
+    }
 
     revalidatePath("/admin/users");
     return { ok: true };
@@ -93,7 +104,6 @@ export async function removeUserAction(
     const me = await requireAdmin();
     if (id === me.id) return { ok: false, error: "You can't remove yourself" };
     const admin = createSupabaseAdminClient();
-    // Deleting from auth cascades to public.users via FK on delete cascade.
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) return { ok: false, error: error.message };
     revalidatePath("/admin/users");
@@ -103,22 +113,44 @@ export async function removeUserAction(
   }
 }
 
-export async function generateSignInLinkAction(
-  email: string,
-): Promise<{ ok: boolean; otp?: string; error?: string }> {
+// Reset a user's code (admin override — e.g. forgotten code).
+// Generates a new auth password derived from the new code.
+export async function resetCodeAction(input: {
+  id: string;
+  newCode: string;
+}): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdmin();
+    const newCode = normalizeCode(input.newCode);
+    if (!newCode) return { ok: false, error: "4-digit code required" };
+
     const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email: email.trim().toLowerCase(),
+    const { data: existing } = await admin
+      .from("users")
+      .select("id")
+      .eq("employee_code", newCode)
+      .neq("id", input.id)
+      .maybeSingle();
+    if (existing) return { ok: false, error: "That code is already in use" };
+
+    const email = syntheticEmail(newCode);
+    const password = derivePassword(newCode);
+
+    const { error: authErr } = await admin.auth.admin.updateUserById(input.id, {
+      email,
+      password,
+      email_confirm: true,
     });
-    if (error) return { ok: false, error: error.message };
-    // GoTrue returns the OTP in properties.email_otp
-    const otp =
-      (data?.properties as { email_otp?: string } | undefined)?.email_otp ??
-      undefined;
-    return { ok: true, otp };
+    if (authErr) return { ok: false, error: authErr.message };
+
+    const { error: profileErr } = await admin
+      .from("users")
+      .update({ employee_code: newCode, email })
+      .eq("id", input.id);
+    if (profileErr) return { ok: false, error: profileErr.message };
+
+    revalidatePath("/admin/users");
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "unknown" };
   }

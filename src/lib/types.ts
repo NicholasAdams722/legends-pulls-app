@@ -21,6 +21,7 @@ export type AppUser = {
   email: string;
   store_id: string;
   role: UserRole;
+  employee_code: string | null;
   created_at: string;
 };
 
