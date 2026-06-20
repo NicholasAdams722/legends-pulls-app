@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import type { MyPull } from "./my-pulls-tabs";
+import { EmptyState, PlusIcon } from "../../_components/empty-state";
 
 export function PostedList({
   pulls,
@@ -55,11 +56,17 @@ export function PostedList({
       </div>
 
       {visible.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-500">
-          {search
-            ? "No available pulls match that search."
-            : "No pulls waiting for a claim. Tap + to post one."}
-        </div>
+        search ? (
+          <div className="px-6 py-12 text-center text-base text-zinc-500">
+            No available pulls match that search.
+          </div>
+        ) : (
+          <EmptyState
+            icon={<PlusIcon />}
+            title="No pulls waiting for a claim"
+            body="When you post a pull, it appears here until another store claims it. Tap the green + at the bottom to post your first pull."
+          />
+        )
       ) : (
         <ul className="divide-y divide-zinc-200">
           {visible.map((p) => {

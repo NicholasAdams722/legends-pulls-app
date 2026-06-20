@@ -3,6 +3,7 @@ import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TabBar } from "./_components/tab-bar";
 import { SignOutButton } from "./_components/sign-out-button";
+import { ToastProvider } from "./_components/toast";
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,7 @@ export default async function AppLayout({
   const initialPullsBadge = count ?? 0;
 
   return (
+    <ToastProvider>
     <div className="flex-1 flex flex-col min-h-0">
       <header className="pt-safe sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-200">
         <div className="px-4 py-2 flex items-center justify-between gap-3">
@@ -48,12 +50,13 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto pb-tab">{children}</main>
       <TabBar
         role={user.role}
         userId={user.id}
         initialPullsBadge={initialPullsBadge}
       />
     </div>
+    </ToastProvider>
   );
 }

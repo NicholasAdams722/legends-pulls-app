@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import type { PullLine, PullStatus, Store } from "@/lib/types";
+import { useToast } from "../../_components/toast";
+import { EmptyState, InboxIcon } from "../../_components/empty-state";
 
 export type ClaimedPull = {
   id: string;
@@ -20,6 +22,7 @@ export type ClaimedPull = {
 
 export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [receiving, setReceiving] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,8 +45,12 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
     try {
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.rpc("receive_pull", { p_pull_id: id });
-      if (error) alert(error.message);
-      else router.refresh();
+      if (error) {
+        alert(error.message);
+      } else {
+        toast.show("Received — don't forget to log it in your POS");
+        router.refresh();
+      }
     } finally {
       setReceiving(null);
     }
@@ -51,9 +58,11 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
 
   if (initial.length === 0) {
     return (
-      <div className="p-10 text-center text-base text-zinc-500">
-        No active claims awaiting handoff.
-      </div>
+      <EmptyState
+        icon={<InboxIcon />}
+        title="No active claims"
+        body="When you claim a pull from the Feed, it'll show up here. The badge will update as the other store packs and ships it — tap Mark Received when the tote arrives."
+      />
     );
   }
 

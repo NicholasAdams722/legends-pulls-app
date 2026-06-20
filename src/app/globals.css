@@ -33,3 +33,8 @@ a,
 .pt-safe {
   padding-top: env(safe-area-inset-top);
 }
+
+/* Bottom padding equal to the fixed TabBar height + iOS home-indicator. */
+.pb-tab {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+}

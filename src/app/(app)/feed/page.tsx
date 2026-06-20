@@ -19,12 +19,13 @@ export default async function FeedPage() {
          pull_lines(*)`,
       )
       .eq("status", "available")
-      .neq("from_store_id", store.id)
       .order("created_at", { ascending: false }),
     supabase.from("pull_passes").select("pull_id").eq("store_id", store.id),
     supabase.from("stores").select("*").order("code"),
   ]);
 
+  // Hide pulls this store has passed on, but keep the user's own store's
+  // pulls visible (they just can't act on them).
   const passedIds = new Set((passesRes.data ?? []).map((p) => p.pull_id));
   const pulls = ((pullsRes.data ?? []) as unknown as FeedPull[]).filter(
     (p) => !passedIds.has(p.id),

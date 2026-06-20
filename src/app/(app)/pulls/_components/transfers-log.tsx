@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MyPull } from "./my-pulls-tabs";
+import { ClipboardIcon, EmptyState } from "../../_components/empty-state";
 
 type Range = "today" | "week" | "all";
 
@@ -275,11 +276,17 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       )}
 
       {visibleRows.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-500">
-          {rows.length === 0
-            ? "No transfers sent in this range."
-            : "All transfers entered. Nice work."}
-        </div>
+        rows.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardIcon />}
+            title="No transfers sent in this range"
+            body="After you mark a tote Sent in the To send tab, every line shows up here ready for POS entry. Tap each row to check it off as you enter it."
+          />
+        ) : (
+          <div className="px-6 py-12 text-center text-base text-zinc-700 font-semibold">
+            All transfers entered. Nice work.
+          </div>
+        )
       ) : (
         <ul className="divide-y divide-zinc-200">
           {visibleRows.map((r) => {

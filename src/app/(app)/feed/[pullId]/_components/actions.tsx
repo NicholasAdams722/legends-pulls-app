@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useToast } from "../../../_components/toast";
 
 export function PullActions({ pullId }: { pullId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [busy, setBusy] = useState<"claim" | "pass" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +24,11 @@ export function PullActions({ pullId }: { pullId: string }) {
         setError(rpcErr.message);
         return;
       }
+      if (action === "claim") {
+        toast.show("Claimed — find it in your Claims tab");
+      } else {
+        toast.show("Passed");
+      }
       router.push("/feed");
       router.refresh();
     } finally {
@@ -31,6 +38,11 @@ export function PullActions({ pullId }: { pullId: string }) {
 
   return (
     <div className="space-y-3">
+      <p className="text-sm text-zinc-600 leading-relaxed">
+        <span className="font-semibold text-zinc-800">Pass</span> to skip this
+        pull. <span className="font-semibold text-zinc-800">Claim</span> to take
+        it for your store — it will be shipped to you on the next truck.
+      </p>
       <div className="flex gap-3">
         <button
           onClick={() => call("pass")}

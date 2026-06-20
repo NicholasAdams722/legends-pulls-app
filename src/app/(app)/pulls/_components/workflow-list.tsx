@@ -5,6 +5,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import { storeColor } from "@/lib/store-colors";
 import type { MyPull } from "./my-pulls-tabs";
+import { useToast } from "../../_components/toast";
+import {
+  BoxIcon,
+  EmptyState,
+  TruckIcon,
+} from "../../_components/empty-state";
 
 type Mode = "pack" | "send";
 
@@ -27,27 +33,47 @@ const COPY: Record<
   Mode,
   {
     emptyTitle: string;
+    emptyBody: string;
+    emptyIcon: React.ReactNode;
     actionRpc: "pack_pull" | "send_pull";
     actionLabel: string;
     actionBusy: string;
     actionBtnCls: string;
+    /** Verb-first headline for each destination group. */
+    groupHeadline: (destLabel: string) => string;
+    /** Plain-English instruction shown under each group header. */
+    groupInstruction: (destLabel: string) => string;
+    /** Toast shown after the RPC succeeds. */
+    successToast: string;
   }
 > = {
   pack: {
-    emptyTitle:
-      "Nothing to pack. Claimed pulls will appear here grouped by destination.",
+    emptyTitle: "Nothing to pack",
+    emptyBody:
+      "When another store claims one of your pulls, it'll show up here grouped by destination — ready for you to pack and label for shipping.",
+    emptyIcon: <BoxIcon />,
     actionRpc: "pack_pull",
     actionLabel: "Packed",
     actionBusy: "Packing…",
     actionBtnCls: "bg-orange-500 text-white",
+    groupHeadline: (destLabel) => `Pack for ${destLabel}`,
+    groupInstruction: (destLabel) =>
+      `Pack these items into totes and label each tote for ${destLabel}.`,
+    successToast: "Packed — see it in To send",
   },
   send: {
-    emptyTitle:
-      "Nothing to send. Packed pulls will appear here grouped by destination.",
+    emptyTitle: "Nothing to send",
+    emptyBody:
+      "After you mark a tote Packed in the To pack tab, it'll move here — ready to load on the truck.",
+    emptyIcon: <TruckIcon />,
     actionRpc: "send_pull",
     actionLabel: "Sent",
     actionBusy: "Sending…",
     actionBtnCls: "bg-emerald-500 text-white",
+    groupHeadline: (destLabel) => `Ship to ${destLabel}`,
+    groupInstruction: (destLabel) =>
+      `Load the packed totes onto the truck heading to ${destLabel}. Mark each tote Sent as it goes on the truck.`,
+    successToast: "Sent — log it in Transfers log",
   },
 };
 
@@ -61,6 +87,7 @@ export function WorkflowList({
   onPatch: (id: string, patch: Partial<MyPull>) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
   const copy = COPY[mode];
 
   const groups = useMemo<Group[]>(() => {
@@ -100,6 +127,7 @@ export function WorkflowList({
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.rpc(copy.actionRpc, { p_pull_id: id });
       if (error) alert(error.message);
+      else toast.show(copy.successToast);
     } finally {
       setBusy(null);
     }
@@ -107,9 +135,11 @@ export function WorkflowList({
 
   if (groups.length === 0) {
     return (
-      <div className="p-10 text-center text-base text-zinc-500">
-        {copy.emptyTitle}
-      </div>
+      <EmptyState
+        icon={copy.emptyIcon}
+        title={copy.emptyTitle}
+        body={copy.emptyBody}
+      />
     );
   }
 
@@ -121,82 +151,89 @@ export function WorkflowList({
           0,
         );
         const color = storeColor(g.code ?? 0);
+        const destLabel =
+          g.code === null
+            ? "Warehouse"
+            : g.label.replace(/^Store \d+ · /, `Store ${g.code} · `);
         return (
           <section key={g.key} className={`border-l-4 ${color.border}`}>
-            <header className="px-4 py-3 bg-white/80 sticky top-0 backdrop-blur border-b border-zinc-200 z-[1]">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={`shrink-0 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${color.badge}`}
-                  >
-                    {g.code === null ? "WH" : `Store ${g.code}`}
-                  </span>
-                  <span className="text-base font-semibold truncate text-zinc-900">
-                    {g.code === null
-                      ? "Warehouse"
-                      : g.label.replace(/^Store \d+ · /, "")}
-                  </span>
+            <header className="px-4 py-3 bg-white/90 sticky top-0 backdrop-blur border-b border-zinc-200 z-[1]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`shrink-0 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${color.badge}`}
+                    >
+                      {g.code === null ? "WH" : `Store ${g.code}`}
+                    </span>
+                    <span className="text-base font-bold text-zinc-900 truncate">
+                      {copy.groupHeadline(destLabel)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-xs text-zinc-500 shrink-0 font-medium">
-                  {g.pulls.length} {g.pulls.length === 1 ? "tote" : "totes"} ·{" "}
+                <div className="text-xs text-zinc-500 shrink-0 font-medium pt-1">
+                  {g.pulls.length} {g.pulls.length === 1 ? "pull" : "pulls"} ·{" "}
                   {totalPieces} pcs
                 </div>
               </div>
             </header>
-            <ul className="divide-y divide-zinc-200">
+            <div className="px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 text-sm text-zinc-700 leading-snug">
+              {copy.groupInstruction(destLabel)}
+            </div>
+            <ul className="px-3 py-3 space-y-3">
               {g.pulls.map((p) => {
                 const total = totalQuantity(p.pull_lines);
                 const breakdown = variantBreakdown(p.pull_lines);
                 const isWarehouseHandoff =
                   mode === "pack" && p.status === "to_warehouse";
                 return (
-                  <li key={p.id} className="p-4">
-                    <div className="flex gap-3">
-                      <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
-                        {p.photo_urls[0] && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={p.photo_urls[0]}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-base font-semibold truncate text-zinc-900">
-                          {p.style_name}
-                        </div>
-                        <div className="text-sm text-zinc-700 mt-1">
-                          {total} {total === 1 ? "pc" : "pcs"}
-                          {breakdown && ` · ${breakdown}`}
-                        </div>
-                        <div className="text-sm text-zinc-600 mt-1 font-mono truncate">
-                          {p.pull_lines
-                            .map(
-                              (l) =>
-                                `${l.sku}${
-                                  l.color || l.size
-                                    ? ` (${[l.color, l.size]
-                                        .filter(Boolean)
-                                        .join("/")})`
-                                    : ""
-                                }×${l.quantity}`,
-                            )
-                            .join(", ")}
-                        </div>
-                      </div>
+                  <li
+                    key={p.id}
+                    className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
+                  >
+                    <div className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch">
+                      {p.photo_urls[0] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.photo_urls[0]}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
                     </div>
-                    <div className="mt-3">
+                    <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
+                      <div className="text-base font-semibold truncate text-zinc-900">
+                        {p.style_name}
+                      </div>
+                      <div className="text-sm text-zinc-700">
+                        {total} {total === 1 ? "pc" : "pcs"}
+                        {breakdown && ` · ${breakdown}`}
+                      </div>
+                      <div className="text-sm text-zinc-600 font-mono leading-snug line-clamp-3">
+                        {p.pull_lines
+                          .map(
+                            (l) =>
+                              `${l.sku}${
+                                l.color || l.size
+                                  ? ` (${[l.color, l.size]
+                                      .filter(Boolean)
+                                      .join("/")})`
+                                  : ""
+                              }×${l.quantity}`,
+                          )
+                          .join(", ")}
+                      </div>
+                      <div className="flex-1 min-h-2" />
                       {isWarehouseHandoff ? (
-                        <div className="text-sm text-zinc-700 px-4 py-3 rounded-lg bg-zinc-100 border border-zinc-200">
+                        <div className="text-sm text-zinc-700 px-3 py-2.5 rounded-lg bg-zinc-100 border border-zinc-200 text-center font-semibold">
                           Hand off to warehouse driver
                         </div>
                       ) : (
                         <button
                           onClick={() => callRpc(p.id)}
                           disabled={busy !== null}
-                          className={`w-full h-14 rounded-xl text-base font-bold disabled:opacity-50 active:scale-[0.99] ${copy.actionBtnCls}`}
+                          className={`w-full h-12 rounded-lg text-base font-bold disabled:opacity-50 active:scale-[0.99] ${copy.actionBtnCls}`}
                         >
                           {busy === p.id ? copy.actionBusy : copy.actionLabel}
                         </button>

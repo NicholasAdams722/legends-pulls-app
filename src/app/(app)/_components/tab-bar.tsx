@@ -136,7 +136,7 @@ export function TabBar({
   const rightTabs = isWarehouse ? [CLAIMS, HISTORY] : [CLAIMS, HISTORY];
 
   return (
-    <nav className="pb-safe sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-zinc-200">
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-zinc-200">
       <ul className="flex relative items-stretch">
         {leftTabs.map((tab) => (
           <TabItem

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { storeColor } from "@/lib/store-colors";
-import type { Store } from "@/lib/types";
+import type { PullStatus, Store } from "@/lib/types";
 import { PullCard, type FeedPull } from "./pull-card";
+import { EmptyState, InboxIcon } from "../../_components/empty-state";
 
 export function FeedList({
   initialPulls,
@@ -16,41 +16,100 @@ export function FeedList({
   stores: Store[];
   ownStoreId: string;
 }) {
-  const router = useRouter();
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "soft" | "hard">("all");
+  const [pulls, setPulls] = useState<FeedPull[]>(initialPulls);
 
+  // Re-seed when server gives us new initial data (e.g., hard nav).
+  const initialRef = useRef(initialPulls);
+  useEffect(() => {
+    if (initialPulls !== initialRef.current) {
+      initialRef.current = initialPulls;
+      setPulls(initialPulls);
+    }
+  }, [initialPulls]);
+
+  // Realtime: instead of refetching the whole feed on every change,
+  // merge row changes into local state. Much cheaper than router.refresh()
+  // and avoids the proxy auth round-trip per event.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
       .channel("feed-pulls")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pulls" },
-        () => router.refresh(),
+        { event: "INSERT", schema: "public", table: "pulls" },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            from_store_id: string;
+            status: PullStatus;
+          };
+          if (row.status !== "available") return;
+          // Fetch the full row with embeds; the INSERT payload doesn't
+          // include joined data.
+          const { data } = await supabase
+            .from("pulls")
+            .select(
+              `id, photo_urls, style_name, good_type, description,
+               from_store:stores!pulls_from_store_id_fkey(*),
+               pull_lines(*)`,
+            )
+            .eq("id", row.id)
+            .maybeSingle();
+          if (!data) return;
+          const fresh = data as unknown as FeedPull;
+          setPulls((prev) =>
+            prev.some((p) => p.id === fresh.id) ? prev : [fresh, ...prev],
+          );
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pull_passes" },
-        () => router.refresh(),
+        { event: "UPDATE", schema: "public", table: "pulls" },
+        (payload) => {
+          const row = payload.new as { id: string; status?: PullStatus };
+          if (row.status && row.status !== "available") {
+            setPulls((prev) => prev.filter((p) => p.id !== row.id));
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pulls" },
+        (payload) => {
+          const row = payload.old as { id: string };
+          setPulls((prev) => prev.filter((p) => p.id !== row.id));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "pull_passes",
+          filter: `store_id=eq.${ownStoreId}`,
+        },
+        (payload) => {
+          const row = payload.new as { pull_id: string };
+          setPulls((prev) => prev.filter((p) => p.id !== row.pull_id));
+        },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [router]);
+  }, [ownStoreId]);
 
   const filtered = useMemo(() => {
-    return initialPulls.filter((p) => {
+    return pulls.filter((p) => {
       if (storeFilter !== "all" && p.from_store.id !== storeFilter) return false;
       if (typeFilter !== "all" && p.good_type !== typeFilter) return false;
       return true;
     });
-  }, [initialPulls, storeFilter, typeFilter]);
+  }, [pulls, storeFilter, typeFilter]);
 
-  const peerStores = stores.filter(
-    (s) => s.type === "retail" && s.id !== ownStoreId,
-  );
+  const retailStores = stores.filter((s) => s.type === "retail");
 
   return (
     <div className="flex flex-col">
@@ -62,7 +121,7 @@ export function FeedList({
           >
             All stores
           </FilterChip>
-          {peerStores.map((s) => {
+          {retailStores.map((s) => {
             const c = storeColor(s.code);
             return (
               <FilterChip
@@ -89,9 +148,11 @@ export function FeedList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-500">
-          Nothing available right now.
-        </div>
+        <EmptyState
+          icon={<InboxIcon />}
+          title="Nothing available right now"
+          body="Other stores will post pulls here for you to claim. Tap the green + below to share inventory your store needs to move."
+        />
       ) : (
         <div className="p-3 grid grid-cols-2 gap-3">
           {filtered.map((p) => (
