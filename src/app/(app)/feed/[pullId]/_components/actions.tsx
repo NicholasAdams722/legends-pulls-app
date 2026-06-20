@@ -22,7 +22,7 @@ export function PullActions({ pullId }: { pullId: string }) {
         setError(rpcErr.message);
         return;
       }
-      router.push(action === "claim" ? "/claims" : "/feed");
+      router.push("/feed");
       router.refresh();
     } finally {
       setBusy(null);
