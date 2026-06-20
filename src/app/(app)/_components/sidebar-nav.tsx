@@ -6,53 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PullStatus, UserRole } from "@/lib/types";
 import { useToast } from "./toast";
+import { SignOutButton } from "./sign-out-button";
 
-type TabDef = {
+type Item = {
   href: string;
   label: string;
-  icon: () => React.ReactNode;
-};
-
-const FEED: TabDef = {
-  href: "/feed",
-  label: "Feed",
-  icon: () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </svg>
-  ),
-};
-const PULLS: TabDef = {
-  href: "/pulls",
-  label: "Pulls",
-  icon: () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 7h16M4 12h16M4 17h10" />
-    </svg>
-  ),
-};
-const CLAIMS: TabDef = {
-  href: "/claims",
-  label: "Claims",
-  icon: () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7l4-4h10l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-      <path d="M8 11l3 3 5-5" />
-    </svg>
-  ),
-};
-const HISTORY: TabDef = {
-  href: "/history",
-  label: "History",
-  icon: () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  ),
+  icon: React.ReactNode;
 };
 
 const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
@@ -60,33 +19,78 @@ const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
   "packed",
   "to_warehouse",
 ]);
-
 const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
   "to_warehouse",
   "packed",
   "sent",
 ]);
 
-export function TabBar({
+const FEED: Item = {
+  href: "/feed",
+  label: "Feed",
+  icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  ),
+};
+const PULLS: Item = {
+  href: "/pulls",
+  label: "My Pulls",
+  icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M4 12h16M4 17h10" />
+    </svg>
+  ),
+};
+const CLAIMS: Item = {
+  href: "/claims",
+  label: "Claims",
+  icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7l4-4h10l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+      <path d="M8 11l3 3 5-5" />
+    </svg>
+  ),
+};
+const HISTORY: Item = {
+  href: "/history",
+  label: "History",
+  icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
+};
+
+export function SidebarNav({
   role,
   userId,
   storeId,
+  storeCode,
+  storeName,
+  userName,
   initialPullsBadge,
   initialRoutedBadge,
 }: {
   role: UserRole;
   userId: string;
   storeId: string;
+  storeCode: number;
+  storeName: string;
+  userName: string;
   initialPullsBadge: number;
   initialRoutedBadge: number;
 }) {
   const pathname = usePathname();
   const toast = useToast();
-  const postActive = pathname === "/post" || pathname.startsWith("/post/");
   const [pullsBadge, setPullsBadge] = useState(initialPullsBadge);
   const [routedBadge, setRoutedBadge] = useState(initialRoutedBadge);
 
-  // Re-seed when server gives us a fresh count (e.g., on hard nav).
   const seededPullsRef = useRef(initialPullsBadge);
   useEffect(() => {
     if (initialPullsBadge !== seededPullsRef.current) {
@@ -102,13 +106,12 @@ export function TabBar({
     }
   }, [initialRoutedBadge]);
 
-  // Realtime: adjust badge by delta on UPDATE/DELETE of this user's pulls.
-  // INSERT can't change in-flight count (new pulls are always 'available').
+  // Realtime pulls badge (managers/admins only).
   useEffect(() => {
-    if (role === "warehouse") return; // no Pulls tab for warehouse
+    if (role === "warehouse") return;
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
-      .channel("tabbar-pulls")
+      .channel("sidebar-pulls")
       .on(
         "postgres_changes",
         {
@@ -149,14 +152,12 @@ export function TabBar({
     };
   }, [role, userId]);
 
-  // Realtime: warehouse-only — listen for pulls heading to or leaving the
-  // warehouse's incoming queue (to_warehouse / packed / sent with
-  // claimed_by_store_id = warehouse). Pop a toast on first arrival.
+  // Realtime routed badge (warehouse only).
   useEffect(() => {
     if (role !== "warehouse") return;
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
-      .channel("tabbar-routed")
+      .channel("sidebar-routed")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "pulls" },
@@ -179,7 +180,6 @@ export function TabBar({
             ROUTED_INFLIGHT.has(newRow.status);
           if (!wasOurs && isOurs) {
             setRoutedBadge((n) => n + 1);
-            // Only buzz on the first transition into the queue.
             if (newRow.status === "to_warehouse") {
               toast.show("New pull routed to warehouse");
             }
@@ -211,92 +211,90 @@ export function TabBar({
     };
   }, [role, storeId, toast]);
 
-  // Manager layout: Feed | Pulls | [POST FAB] | Claims | History
-  // Warehouse layout: Feed | Routed | History (no post FAB, no pulls)
   const isWarehouse = role === "warehouse";
-  const claimsTab: TabDef = isWarehouse
-    ? { ...CLAIMS, label: "Routed" }
-    : CLAIMS;
-  const leftTabs = isWarehouse ? [FEED] : [FEED, PULLS];
-  const rightTabs = isWarehouse ? [claimsTab, HISTORY] : [claimsTab, HISTORY];
+  const claims: Item = isWarehouse ? { ...CLAIMS, label: "Routed" } : CLAIMS;
+  const items: Item[] = isWarehouse
+    ? [FEED, claims, HISTORY]
+    : [FEED, PULLS, claims, HISTORY];
 
   return (
-    <nav className="lg:hidden pb-safe fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-zinc-200">
-      <ul className="flex relative items-stretch">
-        {leftTabs.map((tab) => (
-          <TabItem
-            key={tab.href}
-            tab={tab}
-            pathname={pathname}
-            badge={tab === PULLS ? pullsBadge : 0}
-          />
-        ))}
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:bg-white lg:border-r lg:border-zinc-200 lg:flex lg:flex-col">
+      <div className="px-5 pt-6 pb-5 border-b border-zinc-200">
+        <div className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">
+          Legends Pulls
+        </div>
+        <div className="mt-2 text-base font-bold text-zinc-900 leading-tight">
+          Store {storeCode}
+        </div>
+        <div className="text-sm text-zinc-600">{storeName}</div>
+        <div className="text-xs text-zinc-500 mt-2 truncate">{userName}</div>
+      </div>
 
-        {!isWarehouse && (
-          <li className="flex-1 relative flex justify-center">
+      <nav className="flex-1 p-3 space-y-1">
+        {items.map((it) => {
+          const active =
+            pathname === it.href || pathname.startsWith(it.href + "/");
+          const badge =
+            it.href === "/pulls"
+              ? pullsBadge
+              : isWarehouse && it.href === "/claims"
+                ? routedBadge
+                : 0;
+          return (
             <Link
-              href="/post"
-              aria-label="Post a pull"
-              className={`absolute -top-5 w-16 h-16 rounded-full flex items-center justify-center transition-transform active:scale-95 ring-4 ring-white ${
-                postActive
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/40"
-                  : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+              key={it.href}
+              href={it.href}
+              className={`flex items-center gap-3 px-3 h-11 rounded-lg text-sm font-semibold transition-colors ${
+                active
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-700 hover:bg-zinc-100"
               }`}
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <span className="shrink-0">{it.icon}</span>
+              <span className="flex-1">{it.label}</span>
+              {badge > 0 && (
+                <span className="shrink-0 min-w-[20px] h-[20px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold leading-[20px] text-center">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
-            {/* Keep slot height in sync with siblings */}
-            <span className="h-14" />
-          </li>
-        )}
+          );
+        })}
+      </nav>
 
-        {rightTabs.map((tab) => (
-          <TabItem
-            key={tab.href}
-            tab={tab}
-            pathname={pathname}
-            badge={
-              isWarehouse && tab.href === "/claims" ? routedBadge : 0
-            }
-          />
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
-function TabItem({
-  tab,
-  pathname,
-  badge,
-}: {
-  tab: TabDef;
-  pathname: string;
-  badge: number;
-}) {
-  const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
-  return (
-    <li className="flex-1">
-      <Link
-        href={tab.href}
-        className={`relative flex flex-col items-center justify-center h-14 gap-0.5 ${
-          active ? "text-zinc-900" : "text-zinc-500"
-        }`}
-      >
-        <div className="relative">
-          <tab.icon />
-          {badge > 0 && (
-            <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-[16px] text-center">
-              {badge > 99 ? "99+" : badge}
-            </span>
-          )}
+      {!isWarehouse && (
+        <div className="px-3 pb-3">
+          <Link
+            href="/post"
+            className="flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-500 text-white text-base font-bold shadow-sm hover:bg-emerald-600 transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Post a pull
+          </Link>
         </div>
-        <span className="text-[11px] font-semibold leading-none">
-          {tab.label}
-        </span>
-      </Link>
-    </li>
+      )}
+
+      {role === "admin" && (
+        <div className="px-3 pb-2">
+          <Link
+            href="/admin/users"
+            className="flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+            </svg>
+            Admin
+          </Link>
+        </div>
+      )}
+
+      <div className="px-3 pb-4 pt-2 border-t border-zinc-200 flex items-center justify-between gap-2">
+        <div className="text-xs text-zinc-500 truncate">Signed in</div>
+        <SignOutButton />
+      </div>
+    </aside>
   );
 }

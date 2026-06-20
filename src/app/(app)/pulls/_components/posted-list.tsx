@@ -70,7 +70,7 @@ export function PostedList({
           />
         )
       ) : (
-        <ul className="px-3 py-3 space-y-3">
+        <ul className="px-3 py-3 space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:px-4 lg:py-4 xl:grid-cols-3">
           {visible.map((p) => {
             const total = totalQuantity(p.pull_lines);
             const breakdown = variantBreakdown(p.pull_lines);

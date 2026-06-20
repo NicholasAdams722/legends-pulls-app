@@ -182,7 +182,7 @@ export function WorkflowList({
             <div className="px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 text-sm text-zinc-700 leading-snug">
               {copy.groupInstruction(destLabel)}
             </div>
-            <ul className="px-3 py-3 space-y-3">
+            <ul className="px-3 py-3 space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:px-4 lg:py-4 xl:grid-cols-3">
               {g.pulls.map((p) => {
                 const total = totalQuantity(p.pull_lines);
                 const breakdown = variantBreakdown(p.pull_lines);

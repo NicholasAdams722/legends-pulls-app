@@ -73,15 +73,17 @@ export function PullDetailSheet({
         className="absolute inset-0 bg-zinc-900/50 backdrop-blur-sm"
         aria-hidden
       />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={pull.style_name}
-        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[90dvh] flex flex-col"
-      >
-        <div className="flex justify-center pt-2 pb-1 shrink-0">
-          <div className="w-12 h-1.5 rounded-full bg-zinc-300" />
-        </div>
+      <div className="absolute inset-0 lg:flex lg:items-center lg:justify-center lg:p-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={pull.style_name}
+          className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[90dvh] flex flex-col
+                     lg:static lg:w-full lg:max-w-xl lg:rounded-2xl lg:max-h-[85dvh] lg:shadow-2xl"
+        >
+          <div className="flex justify-center pt-2 pb-1 shrink-0 lg:hidden">
+            <div className="w-12 h-1.5 rounded-full bg-zinc-300" />
+          </div>
 
         <div className="px-4 pt-2 pb-3 border-b border-zinc-200 shrink-0">
           <div className="flex items-start justify-between gap-3">
@@ -207,6 +209,7 @@ export function PullDetailSheet({
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

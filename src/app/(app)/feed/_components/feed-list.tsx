@@ -154,7 +154,7 @@ export function FeedList({
           body="Other stores will post pulls here for you to claim. Tap the green + below to share inventory your store needs to move."
         />
       ) : (
-        <div className="p-3 grid grid-cols-2 gap-3">
+        <div className="p-3 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4 lg:p-4 xl:grid-cols-5">
           {filtered.map((p) => (
             <PullCard key={p.id} pull={p} />
           ))}
