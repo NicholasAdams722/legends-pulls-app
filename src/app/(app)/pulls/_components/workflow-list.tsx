@@ -53,27 +53,27 @@ const COPY: Record<
       "When another store claims one of your pulls, it'll show up here grouped by destination — ready for you to pack and label for shipping.",
     emptyIcon: <BoxIcon />,
     actionRpc: "pack_pull",
-    actionLabel: "Packed",
+    actionLabel: "Packed for Shipping",
     actionBusy: "Packing…",
     actionBtnCls: "bg-orange-500 text-white",
     groupHeadline: (destLabel) => `Pack for ${destLabel}`,
     groupInstruction: (destLabel) =>
       `Pack these items into totes and label each tote for ${destLabel}.`,
-    successToast: "Packed — see it in To send",
+    successToast: "Packed — see it in To ship",
   },
   send: {
-    emptyTitle: "Nothing to send",
+    emptyTitle: "Nothing to ship",
     emptyBody:
       "After you mark a tote Packed in the To pack tab, it'll move here — ready to load on the truck.",
     emptyIcon: <TruckIcon />,
     actionRpc: "send_pull",
-    actionLabel: "Sent",
-    actionBusy: "Sending…",
+    actionLabel: "Shipped",
+    actionBusy: "Shipping…",
     actionBtnCls: "bg-emerald-500 text-white",
     groupHeadline: (destLabel) => `Ship to ${destLabel}`,
     groupInstruction: (destLabel) =>
-      `Load the packed totes onto the truck heading to ${destLabel}. Mark each tote Sent as it goes on the truck.`,
-    successToast: "Sent — log it in Transfers log",
+      `Load the packed totes onto the truck heading to ${destLabel}. Mark each tote Shipped as it goes on the truck.`,
+    successToast: "Shipped — log it in Transfers log",
   },
 };
 
@@ -92,7 +92,7 @@ export function WorkflowList({
 
   const groups = useMemo<Group[]>(() => {
     // "To pack" shows claimed pulls + to_warehouse handoff items.
-    // "To send" shows only packed pulls (warehouse path skips this step).
+    // "To ship" shows only packed pulls (warehouse path skips this step).
     const filtered = pulls.filter((p) =>
       mode === "pack"
         ? p.status === "claimed" || p.status === "to_warehouse"

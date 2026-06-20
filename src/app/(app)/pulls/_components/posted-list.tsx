@@ -18,7 +18,7 @@ export function PostedList({
   const [search, setSearch] = useState("");
 
   // Posted = the one active stage of the lifecycle: "Available" (waiting
-  // for a claim). Anything that moved on lives in To pack / To send / Log.
+  // for a claim). Anything that moved on lives in To pack / To ship / Log.
   // Cancelled pulls are dropped entirely.
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -68,51 +68,67 @@ export function PostedList({
           />
         )
       ) : (
-        <ul className="divide-y divide-zinc-200">
+        <ul className="px-3 py-3 space-y-3">
           {visible.map((p) => {
             const total = totalQuantity(p.pull_lines);
             const breakdown = variantBreakdown(p.pull_lines);
             return (
-              <li key={p.id} className="p-4">
-                <div className="flex gap-3">
-                  <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
-                    {p.photo_urls[0] && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.photo_urls[0]}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-base font-semibold truncate text-zinc-900">
-                      {p.style_name}
-                    </div>
-                    <div className="text-sm text-zinc-700 mt-1">
-                      {total} {total === 1 ? "pc" : "pcs"}
-                      {breakdown && ` · ${breakdown}`}
-                    </div>
-                    <div className="text-sm text-zinc-500 mt-1">
-                      Posted {new Date(p.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
+              <li
+                key={p.id}
+                className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
+              >
+                <div className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch">
+                  {p.photo_urls[0] && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.photo_urls[0]}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
                 </div>
-                <div className="flex gap-2 mt-3">
-                  <Link
-                    href={`/pulls/${p.id}/edit`}
-                    className="flex-1 h-12 inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 text-base font-semibold text-zinc-800"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    onClick={() => deletePull(p.id)}
-                    disabled={deleting === p.id}
-                    className="flex-1 h-12 rounded-lg bg-white border border-zinc-300 text-base font-semibold text-red-600 disabled:opacity-50"
-                  >
-                    {deleting === p.id ? "Deleting…" : "Delete"}
-                  </button>
+                <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
+                  <div className="text-base font-semibold truncate text-zinc-900">
+                    {p.style_name}
+                  </div>
+                  <div className="text-sm text-zinc-700">
+                    {total} {total === 1 ? "pc" : "pcs"}
+                    {breakdown && ` · ${breakdown}`}
+                  </div>
+                  <div className="text-sm text-zinc-600 font-mono leading-snug line-clamp-3">
+                    {p.pull_lines
+                      .map(
+                        (l) =>
+                          `${l.sku}${
+                            l.color || l.size
+                              ? ` (${[l.color, l.size]
+                                  .filter(Boolean)
+                                  .join("/")})`
+                              : ""
+                          }×${l.quantity}`,
+                      )
+                      .join(", ")}
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    Posted {new Date(p.created_at).toLocaleDateString()}
+                  </div>
+                  <div className="flex-1 min-h-2" />
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/pulls/${p.id}/edit`}
+                      className="flex-1 h-11 inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 text-sm font-semibold text-zinc-800"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => deletePull(p.id)}
+                      disabled={deleting === p.id}
+                      className="flex-1 h-11 rounded-lg bg-white border border-zinc-300 text-sm font-semibold text-red-600 disabled:opacity-50"
+                    >
+                      {deleting === p.id ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
               </li>
             );

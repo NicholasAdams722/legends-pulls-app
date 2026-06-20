@@ -7,6 +7,7 @@ import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import type { PullLine, PullStatus, Store } from "@/lib/types";
 import { useToast } from "../../_components/toast";
 import { EmptyState, InboxIcon } from "../../_components/empty-state";
+import { JourneyStrip } from "../../_components/journey-strip";
 
 export type ClaimedPull = {
   id: string;
@@ -67,47 +68,50 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
   }
 
   return (
-    <ul className="divide-y divide-zinc-200">
+    <ul className="px-3 py-3 space-y-3">
       {initial.map((p) => {
         const total = totalQuantity(p.pull_lines);
         const breakdown = variantBreakdown(p.pull_lines);
         return (
-          <li key={p.id} className="p-4">
-            <div className="flex gap-3">
-              <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
-                {p.photo_urls[0] && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.photo_urls[0]}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-base font-semibold truncate text-zinc-900">
-                    {p.style_name}
-                  </div>
-                  <ClaimStatusBadge status={p.status} />
-                </div>
-                <div className="text-sm text-zinc-700 mt-1">
-                  From Store {p.from_store.code} · {p.from_store.name}
-                </div>
-                <div className="text-sm text-zinc-500 mt-1">
-                  {total} {total === 1 ? "pc" : "pcs"}
-                  {breakdown && ` · ${breakdown}`}
-                </div>
-              </div>
+          <li
+            key={p.id}
+            className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
+          >
+            <div className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch">
+              {p.photo_urls[0] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={p.photo_urls[0]}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                />
+              )}
             </div>
-            <button
-              onClick={() => markReceived(p.id)}
-              disabled={receiving === p.id}
-              className="mt-3 w-full h-14 rounded-xl bg-emerald-500 text-white text-base font-bold disabled:opacity-50 active:scale-[0.99]"
-            >
-              {receiving === p.id ? "Receiving…" : "Mark Received"}
-            </button>
+            <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
+              <JourneyStrip status={p.status} />
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <div className="text-base font-semibold truncate text-zinc-900">
+                  {p.style_name}
+                </div>
+                <ClaimStatusBadge status={p.status} />
+              </div>
+              <div className="text-sm text-zinc-700">
+                From Store {p.from_store.code} · {p.from_store.name}
+              </div>
+              <div className="text-sm text-zinc-500">
+                {total} {total === 1 ? "pc" : "pcs"}
+                {breakdown && ` · ${breakdown}`}
+              </div>
+              <div className="flex-1 min-h-2" />
+              <button
+                onClick={() => markReceived(p.id)}
+                disabled={receiving === p.id}
+                className="w-full h-12 rounded-lg bg-emerald-500 text-white text-base font-bold disabled:opacity-50 active:scale-[0.99]"
+              >
+                {receiving === p.id ? "Receiving…" : "Mark Received"}
+              </button>
+            </div>
           </li>
         );
       })}

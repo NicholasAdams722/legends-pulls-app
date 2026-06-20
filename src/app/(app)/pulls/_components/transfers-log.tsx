@@ -279,8 +279,8 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
         rows.length === 0 ? (
           <EmptyState
             icon={<ClipboardIcon />}
-            title="No transfers sent in this range"
-            body="After you mark a tote Sent in the To send tab, every line shows up here ready for POS entry. Tap each row to check it off as you enter it."
+            title="No transfers shipped in this range"
+            body="After you mark a tote Shipped in the To ship tab, every line shows up here ready for POS entry. Tap each row to check it off as you enter it."
           />
         ) : (
           <div className="px-6 py-12 text-center text-base text-zinc-700 font-semibold">

@@ -6,6 +6,7 @@ import type { PullLine, PullStatus, Store } from "@/lib/types";
 import { PostedList } from "./posted-list";
 import { WorkflowList } from "./workflow-list";
 import { TransfersLog } from "./transfers-log";
+import { JourneyStrip } from "../../_components/journey-strip";
 
 export type MyPull = {
   id: string;
@@ -24,10 +25,18 @@ export type MyPull = {
 
 type View = "posted" | "pack" | "send" | "log";
 
+function JourneyHeader({ status }: { status: PullStatus }) {
+  return (
+    <div className="px-4 py-3 bg-zinc-50 border-y border-zinc-200">
+      <JourneyStrip status={status} />
+    </div>
+  );
+}
+
 const VIEWS: { id: View; label: string }[] = [
   { id: "posted", label: "Posted" },
   { id: "pack", label: "To pack" },
-  { id: "send", label: "To send" },
+  { id: "send", label: "To ship" },
   { id: "log", label: "Transfers log" },
 ];
 
@@ -187,13 +196,22 @@ export function MyPullsTabs({
       </div>
 
       {view === "posted" && (
-        <PostedList pulls={pulls} onDeleted={removePull} />
+        <>
+          <JourneyHeader status="available" />
+          <PostedList pulls={pulls} onDeleted={removePull} />
+        </>
       )}
       {view === "pack" && (
-        <WorkflowList mode="pack" pulls={pulls} onPatch={patchPull} />
+        <>
+          <JourneyHeader status="claimed" />
+          <WorkflowList mode="pack" pulls={pulls} onPatch={patchPull} />
+        </>
       )}
       {view === "send" && (
-        <WorkflowList mode="send" pulls={pulls} onPatch={patchPull} />
+        <>
+          <JourneyHeader status="packed" />
+          <WorkflowList mode="send" pulls={pulls} onPatch={patchPull} />
+        </>
       )}
       {view === "log" && <TransfersLog pulls={pulls} />}
     </div>
