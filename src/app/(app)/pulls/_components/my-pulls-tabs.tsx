@@ -34,7 +34,7 @@ function JourneyHeader({ status }: { status: PullStatus }) {
 }
 
 const VIEWS: { id: View; label: string }[] = [
-  { id: "posted", label: "Posted" },
+  { id: "posted", label: "Unclaimed" },
   { id: "pack", label: "To pack" },
   { id: "send", label: "To ship" },
   { id: "log", label: "Transfers log" },

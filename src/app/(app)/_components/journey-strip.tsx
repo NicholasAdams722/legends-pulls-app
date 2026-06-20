@@ -1,7 +1,7 @@
 import type { PullStatus } from "@/lib/types";
 
 const STEPS = [
-  { id: "posted", label: "Posted" },
+  { id: "posted", label: "Unclaimed" },
   { id: "claimed", label: "Claimed" },
   { id: "packed", label: "Packed" },
   { id: "shipped", label: "Shipped" },
