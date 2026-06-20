@@ -73,7 +73,7 @@ const COPY: Record<
     groupHeadline: (destLabel) => `Ship to ${destLabel}`,
     groupInstruction: (destLabel) =>
       `Load the packed totes onto the truck heading to ${destLabel}. Mark each tote Shipped as it goes on the truck.`,
-    successToast: "Shipped — log it in Transfers log",
+    successToast: "Shipped — now log this into your POS",
   },
 };
 
