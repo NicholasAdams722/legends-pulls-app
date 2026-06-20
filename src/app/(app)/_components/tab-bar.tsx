@@ -44,13 +44,14 @@ const CLAIMS: TabDef = {
     </svg>
   ),
 };
-const HISTORY: TabDef = {
-  href: "/history",
-  label: "History",
+const POS_LOG: TabDef = {
+  href: "/pos-log",
+  label: "POS Log",
   icon: () => (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4h6v3H9z" fill="currentColor" stroke="none" />
+      <path d="M9 11h6M9 15h6" />
     </svg>
   ),
 };
@@ -217,8 +218,11 @@ export function TabBar({
   const claimsTab: TabDef = isWarehouse
     ? { ...CLAIMS, label: "Routed" }
     : CLAIMS;
+  // POS Log (incoming) is admin/warehouse only. Store managers handle
+  // their POS entry from /pulls?view=log (outgoing).
+  const showPosLog = role !== "manager";
   const leftTabs = isWarehouse ? [FEED] : [FEED, PULLS];
-  const rightTabs = isWarehouse ? [claimsTab, HISTORY] : [claimsTab, HISTORY];
+  const rightTabs = showPosLog ? [claimsTab, POS_LOG] : [claimsTab];
 
   return (
     <nav className="lg:hidden pb-safe fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-zinc-200">

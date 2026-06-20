@@ -56,13 +56,14 @@ const CLAIMS: Item = {
     </svg>
   ),
 };
-const HISTORY: Item = {
-  href: "/history",
-  label: "History",
+const POS_LOG: Item = {
+  href: "/pos-log",
+  label: "POS Log",
   icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4h6v3H9z" fill="currentColor" stroke="none" />
+      <path d="M9 11h6M9 15h6" />
     </svg>
   ),
 };
@@ -213,9 +214,16 @@ export function SidebarNav({
 
   const isWarehouse = role === "warehouse";
   const claims: Item = isWarehouse ? { ...CLAIMS, label: "Routed" } : CLAIMS;
+  // POS Log (incoming) is admin/warehouse only. Store managers handle
+  // their POS entry from /pulls?view=log (outgoing).
+  const showPosLog = role !== "manager";
   const items: Item[] = isWarehouse
-    ? [FEED, claims, HISTORY]
-    : [FEED, PULLS, claims, HISTORY];
+    ? showPosLog
+      ? [FEED, claims, POS_LOG]
+      : [FEED, claims]
+    : showPosLog
+      ? [FEED, PULLS, claims, POS_LOG]
+      : [FEED, PULLS, claims];
 
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:bg-white lg:border-r lg:border-zinc-200 lg:flex lg:flex-col">
