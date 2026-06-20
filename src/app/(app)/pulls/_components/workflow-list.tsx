@@ -186,8 +186,6 @@ export function WorkflowList({
               {g.pulls.map((p) => {
                 const total = totalQuantity(p.pull_lines);
                 const breakdown = variantBreakdown(p.pull_lines);
-                const isWarehouseHandoff =
-                  mode === "pack" && p.status === "to_warehouse";
                 return (
                   <li
                     key={p.id}
@@ -243,19 +241,13 @@ export function WorkflowList({
                         </div>
                       </button>
                       <div className="flex-1 min-h-2" />
-                      {isWarehouseHandoff ? (
-                        <div className="text-sm text-zinc-700 px-3 py-2.5 rounded-lg bg-zinc-100 border border-zinc-200 text-center font-semibold">
-                          Hand off to warehouse driver
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => callRpc(p.id)}
-                          disabled={busy !== null}
-                          className={`w-full h-12 rounded-lg text-base font-bold disabled:opacity-50 active:scale-[0.99] ${copy.actionBtnCls}`}
-                        >
-                          {busy === p.id ? copy.actionBusy : copy.actionLabel}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => callRpc(p.id)}
+                        disabled={busy !== null}
+                        className={`w-full h-12 rounded-lg text-base font-bold disabled:opacity-50 active:scale-[0.99] ${copy.actionBtnCls}`}
+                      >
+                        {busy === p.id ? copy.actionBusy : copy.actionLabel}
+                      </button>
                     </div>
                   </li>
                 );
@@ -268,21 +260,17 @@ export function WorkflowList({
         <PullDetailSheet
           pull={detailFor}
           onClose={() => setDetailFor(null)}
-          action={
-            detailFor.status === "to_warehouse"
-              ? undefined
-              : {
-                  label: copy.actionLabel,
-                  busyLabel: copy.actionBusy,
-                  busy: busy === detailFor.id,
-                  onClick: () => {
-                    const id = detailFor.id;
-                    setDetailFor(null);
-                    callRpc(id);
-                  },
-                  className: copy.actionBtnCls,
-                }
-          }
+          action={{
+            label: copy.actionLabel,
+            busyLabel: copy.actionBusy,
+            busy: busy === detailFor.id,
+            onClick: () => {
+              const id = detailFor.id;
+              setDetailFor(null);
+              callRpc(id);
+            },
+            className: copy.actionBtnCls,
+          }}
         />
       )}
     </div>

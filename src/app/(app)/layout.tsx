@@ -12,14 +12,28 @@ export default async function AppLayout({
 }) {
   const { user, store } = await requireAppUser();
 
-  // In-flight count drives the badge on the Pulls tab.
+  // In-flight count drives the badge on the Pulls tab (managers/admins).
+  // Routed count drives the badge on the Routed tab (warehouse).
   const supabase = await createSupabaseServerClient();
-  const { count } = await supabase
-    .from("pulls")
-    .select("id", { count: "exact", head: true })
-    .eq("posted_by", user.id)
-    .in("status", ["claimed", "packed", "to_warehouse"]);
-  const initialPullsBadge = count ?? 0;
+  const isWarehouse = user.role === "warehouse";
+  const [pullsBadgeRes, routedBadgeRes] = await Promise.all([
+    isWarehouse
+      ? Promise.resolve({ count: 0 })
+      : supabase
+          .from("pulls")
+          .select("id", { count: "exact", head: true })
+          .eq("posted_by", user.id)
+          .in("status", ["claimed", "packed", "to_warehouse"]),
+    isWarehouse
+      ? supabase
+          .from("pulls")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["to_warehouse", "packed", "sent"])
+          .eq("claimed_by_store_id", store.id)
+      : Promise.resolve({ count: 0 }),
+  ]);
+  const initialPullsBadge = pullsBadgeRes.count ?? 0;
+  const initialRoutedBadge = routedBadgeRes.count ?? 0;
 
   return (
     <ToastProvider>
@@ -54,7 +68,9 @@ export default async function AppLayout({
       <TabBar
         role={user.role}
         userId={user.id}
+        storeId={store.id}
         initialPullsBadge={initialPullsBadge}
+        initialRoutedBadge={initialRoutedBadge}
       />
     </div>
     </ToastProvider>

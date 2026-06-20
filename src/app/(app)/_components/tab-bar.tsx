@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PullStatus, UserRole } from "@/lib/types";
+import { useToast } from "./toast";
 
 type TabDef = {
   href: string;
@@ -60,27 +61,46 @@ const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
   "to_warehouse",
 ]);
 
+const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
+  "to_warehouse",
+  "packed",
+  "sent",
+]);
+
 export function TabBar({
   role,
   userId,
+  storeId,
   initialPullsBadge,
+  initialRoutedBadge,
 }: {
   role: UserRole;
   userId: string;
+  storeId: string;
   initialPullsBadge: number;
+  initialRoutedBadge: number;
 }) {
   const pathname = usePathname();
+  const toast = useToast();
   const postActive = pathname === "/post" || pathname.startsWith("/post/");
   const [pullsBadge, setPullsBadge] = useState(initialPullsBadge);
+  const [routedBadge, setRoutedBadge] = useState(initialRoutedBadge);
 
   // Re-seed when server gives us a fresh count (e.g., on hard nav).
-  const seededRef = useRef(initialPullsBadge);
+  const seededPullsRef = useRef(initialPullsBadge);
   useEffect(() => {
-    if (initialPullsBadge !== seededRef.current) {
-      seededRef.current = initialPullsBadge;
+    if (initialPullsBadge !== seededPullsRef.current) {
+      seededPullsRef.current = initialPullsBadge;
       setPullsBadge(initialPullsBadge);
     }
   }, [initialPullsBadge]);
+  const seededRoutedRef = useRef(initialRoutedBadge);
+  useEffect(() => {
+    if (initialRoutedBadge !== seededRoutedRef.current) {
+      seededRoutedRef.current = initialRoutedBadge;
+      setRoutedBadge(initialRoutedBadge);
+    }
+  }, [initialRoutedBadge]);
 
   // Realtime: adjust badge by delta on UPDATE/DELETE of this user's pulls.
   // INSERT can't change in-flight count (new pulls are always 'available').
@@ -129,11 +149,76 @@ export function TabBar({
     };
   }, [role, userId]);
 
+  // Realtime: warehouse-only — listen for pulls heading to or leaving the
+  // warehouse's incoming queue (to_warehouse / packed / sent with
+  // claimed_by_store_id = warehouse). Pop a toast on first arrival.
+  useEffect(() => {
+    if (role !== "warehouse") return;
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel("tabbar-routed")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pulls" },
+        (payload) => {
+          const oldRow = payload.old as {
+            status?: PullStatus;
+            claimed_by_store_id?: string | null;
+          };
+          const newRow = payload.new as {
+            status?: PullStatus;
+            claimed_by_store_id?: string | null;
+          };
+          const wasOurs =
+            oldRow.claimed_by_store_id === storeId &&
+            !!oldRow.status &&
+            ROUTED_INFLIGHT.has(oldRow.status);
+          const isOurs =
+            newRow.claimed_by_store_id === storeId &&
+            !!newRow.status &&
+            ROUTED_INFLIGHT.has(newRow.status);
+          if (!wasOurs && isOurs) {
+            setRoutedBadge((n) => n + 1);
+            // Only buzz on the first transition into the queue.
+            if (newRow.status === "to_warehouse") {
+              toast.show("New pull routed to warehouse");
+            }
+          } else if (wasOurs && !isOurs) {
+            setRoutedBadge((n) => Math.max(0, n - 1));
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pulls" },
+        (payload) => {
+          const oldRow = payload.old as {
+            status?: PullStatus;
+            claimed_by_store_id?: string | null;
+          };
+          if (
+            oldRow.claimed_by_store_id === storeId &&
+            !!oldRow.status &&
+            ROUTED_INFLIGHT.has(oldRow.status)
+          ) {
+            setRoutedBadge((n) => Math.max(0, n - 1));
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [role, storeId, toast]);
+
   // Manager layout: Feed | Pulls | [POST FAB] | Claims | History
-  // Warehouse layout: Feed | Claims | History (no post FAB, no pulls)
+  // Warehouse layout: Feed | Routed | History (no post FAB, no pulls)
   const isWarehouse = role === "warehouse";
+  const claimsTab: TabDef = isWarehouse
+    ? { ...CLAIMS, label: "Routed" }
+    : CLAIMS;
   const leftTabs = isWarehouse ? [FEED] : [FEED, PULLS];
-  const rightTabs = isWarehouse ? [CLAIMS, HISTORY] : [CLAIMS, HISTORY];
+  const rightTabs = isWarehouse ? [claimsTab, HISTORY] : [claimsTab, HISTORY];
 
   return (
     <nav className="pb-safe fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-zinc-200">
@@ -172,7 +257,9 @@ export function TabBar({
             key={tab.href}
             tab={tab}
             pathname={pathname}
-            badge={0}
+            badge={
+              isWarehouse && tab.href === "/claims" ? routedBadge : 0
+            }
           />
         ))}
       </ul>

@@ -21,7 +21,9 @@ export default async function MyClaimsPage() {
     .order("claimed_at", { ascending: false, nullsFirst: false });
 
   const { data } = await (isWarehouse
-    ? query.eq("status", "to_warehouse")
+    ? query
+        .in("status", ["to_warehouse", "packed", "sent"])
+        .eq("claimed_by_store_id", store.id)
     : query
         .in("status", ["claimed", "packed", "sent"])
         .eq("claimed_by_store_id", store.id));
