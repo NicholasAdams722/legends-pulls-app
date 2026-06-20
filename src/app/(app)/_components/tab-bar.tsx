@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { UserRole } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PullStatus, UserRole } from "@/lib/types";
 
 type TabDef = {
   href: string;
@@ -52,9 +54,80 @@ const HISTORY: TabDef = {
   ),
 };
 
-export function TabBar({ role }: { role: UserRole }) {
+const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
+  "claimed",
+  "packed",
+  "to_warehouse",
+]);
+
+export function TabBar({
+  role,
+  userId,
+  initialPullsBadge,
+}: {
+  role: UserRole;
+  userId: string;
+  initialPullsBadge: number;
+}) {
   const pathname = usePathname();
   const postActive = pathname === "/post" || pathname.startsWith("/post/");
+  const [pullsBadge, setPullsBadge] = useState(initialPullsBadge);
+
+  // Re-seed when server gives us a fresh count (e.g., on hard nav).
+  const seededRef = useRef(initialPullsBadge);
+  useEffect(() => {
+    if (initialPullsBadge !== seededRef.current) {
+      seededRef.current = initialPullsBadge;
+      setPullsBadge(initialPullsBadge);
+    }
+  }, [initialPullsBadge]);
+
+  // Realtime: adjust badge by delta on UPDATE/DELETE of this user's pulls.
+  // INSERT can't change in-flight count (new pulls are always 'available').
+  useEffect(() => {
+    if (role === "warehouse") return; // no Pulls tab for warehouse
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel("tabbar-pulls")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "pulls",
+          filter: `posted_by=eq.${userId}`,
+        },
+        (payload) => {
+          const oldStatus = (payload.old as { status?: PullStatus }).status;
+          const newStatus = (payload.new as { status?: PullStatus }).status;
+          const wasIn = oldStatus ? INFLIGHT.has(oldStatus) : false;
+          const isIn = newStatus ? INFLIGHT.has(newStatus) : false;
+          const delta = (isIn ? 1 : 0) - (wasIn ? 1 : 0);
+          if (delta !== 0) {
+            setPullsBadge((n) => Math.max(0, n + delta));
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "pulls",
+          filter: `posted_by=eq.${userId}`,
+        },
+        (payload) => {
+          const oldStatus = (payload.old as { status?: PullStatus }).status;
+          if (oldStatus && INFLIGHT.has(oldStatus)) {
+            setPullsBadge((n) => Math.max(0, n - 1));
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [role, userId]);
 
   // Manager layout: Feed | Pulls | [POST FAB] | Claims | History
   // Warehouse layout: Feed | Claims | History (no post FAB, no pulls)
@@ -66,7 +139,12 @@ export function TabBar({ role }: { role: UserRole }) {
     <nav className="pb-safe sticky bottom-0 z-10 bg-zinc-950/95 backdrop-blur border-t border-zinc-900">
       <ul className="flex relative items-stretch">
         {leftTabs.map((tab) => (
-          <TabItem key={tab.href} tab={tab} pathname={pathname} />
+          <TabItem
+            key={tab.href}
+            tab={tab}
+            pathname={pathname}
+            badge={tab === PULLS ? pullsBadge : 0}
+          />
         ))}
 
         {!isWarehouse && (
@@ -90,24 +168,44 @@ export function TabBar({ role }: { role: UserRole }) {
         )}
 
         {rightTabs.map((tab) => (
-          <TabItem key={tab.href} tab={tab} pathname={pathname} />
+          <TabItem
+            key={tab.href}
+            tab={tab}
+            pathname={pathname}
+            badge={0}
+          />
         ))}
       </ul>
     </nav>
   );
 }
 
-function TabItem({ tab, pathname }: { tab: TabDef; pathname: string }) {
+function TabItem({
+  tab,
+  pathname,
+  badge,
+}: {
+  tab: TabDef;
+  pathname: string;
+  badge: number;
+}) {
   const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
   return (
     <li className="flex-1">
       <Link
         href={tab.href}
-        className={`flex flex-col items-center justify-center h-14 gap-0.5 ${
+        className={`relative flex flex-col items-center justify-center h-14 gap-0.5 ${
           active ? "text-zinc-50" : "text-zinc-500"
         }`}
       >
-        <tab.icon />
+        <div className="relative">
+          <tab.icon />
+          {badge > 0 && (
+            <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-[16px] text-center">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </div>
         <span className="text-[10px] font-medium leading-none">
           {tab.label}
         </span>

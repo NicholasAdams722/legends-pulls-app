@@ -4,6 +4,8 @@ export type GoodType = "soft" | "hard";
 export type PullStatus =
   | "available"
   | "claimed"
+  | "packed"
+  | "sent"
   | "to_warehouse"
   | "received"
   | "cancelled";
@@ -54,6 +56,8 @@ export type Pull = {
   claimed_by_store_id: string | null;
   claimed_by_user_id: string | null;
   claimed_at: string | null;
+  packed_at: string | null;
+  sent_at: string | null;
   received_at: string | null;
   created_at: string;
 };

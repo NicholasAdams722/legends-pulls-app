@@ -1,0 +1,195 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PullLine, PullStatus, Store } from "@/lib/types";
+import { PostedList } from "./posted-list";
+import { WorkflowList } from "./workflow-list";
+import { TransfersLog } from "./transfers-log";
+
+export type MyPull = {
+  id: string;
+  photo_urls: string[];
+  style_name: string;
+  status: PullStatus;
+  claimed_at: string | null;
+  packed_at: string | null;
+  sent_at: string | null;
+  received_at: string | null;
+  created_at: string;
+  claimed_by_store: Store | null;
+  from_store: Store;
+  pull_lines: PullLine[];
+};
+
+type View = "posted" | "pack" | "send" | "log";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "posted", label: "Posted" },
+  { id: "pack", label: "To pack" },
+  { id: "send", label: "To send" },
+  { id: "log", label: "Transfers log" },
+];
+
+function parseView(v: string | null | undefined): View {
+  return v === "pack" || v === "send" || v === "log" ? v : "posted";
+}
+
+export function MyPullsTabs({
+  initial,
+  initialView,
+  userId,
+}: {
+  initial: MyPull[];
+  initialView: string | undefined;
+  userId: string;
+}) {
+  const [view, setViewState] = useState<View>(parseView(initialView));
+  const [pulls, setPulls] = useState<MyPull[]>(initial);
+
+  // Keep local state in sync if the server passes new initial data
+  // (e.g., navigating back to /pulls).
+  const initialRef = useRef(initial);
+  useEffect(() => {
+    if (initial !== initialRef.current) {
+      initialRef.current = initial;
+      setPulls(initial);
+    }
+  }, [initial]);
+
+  // Optimistic patch used by child components.
+  const patchPull = useCallback(
+    (id: string, patch: Partial<MyPull>) => {
+      setPulls((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      );
+    },
+    [],
+  );
+
+  const removePull = useCallback((id: string) => {
+    setPulls((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  // Realtime: scope to this user's pulls only and merge incoming rows
+  // into local state instead of triggering a full server refetch.
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel("my-pulls")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "pulls",
+          filter: `posted_by=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new as Partial<MyPull> & { id: string };
+          setPulls((prev) =>
+            prev.map((p) => (p.id === row.id ? { ...p, ...row } : p)),
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "pulls",
+          filter: `posted_by=eq.${userId}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as { id: string };
+          setPulls((prev) => prev.filter((p) => p.id !== oldRow.id));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  function setView(next: View) {
+    setViewState(next);
+    // Sync URL without triggering a server re-render.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next === "posted") url.searchParams.delete("view");
+      else url.searchParams.set("view", next);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }
+
+  const counts = useMemo(() => {
+    let posted = 0;
+    let pack = 0;
+    let send = 0;
+    let log = 0;
+    for (const p of pulls) {
+      if (p.status === "available") posted += 1;
+      else if (p.status === "claimed" || p.status === "to_warehouse") pack += 1;
+      else if (p.status === "packed") send += 1;
+      else if (p.status === "sent" || p.status === "received") log += 1;
+    }
+    return { posted, pack, send, log };
+  }, [pulls]);
+
+  return (
+    <div>
+      <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
+        {VIEWS.map((v) => {
+          const active = v.id === view;
+          const badge =
+            v.id === "posted"
+              ? counts.posted
+              : v.id === "pack"
+                ? counts.pack
+                : v.id === "send"
+                  ? counts.send
+                  : v.id === "log"
+                    ? counts.log
+                    : null;
+          return (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`shrink-0 h-9 px-3 rounded-full text-sm font-medium border ${
+                active
+                  ? "bg-zinc-50 text-zinc-950 border-zinc-50"
+                  : "bg-zinc-900 text-zinc-300 border-zinc-800"
+              }`}
+            >
+              {v.label}
+              {badge !== null && badge > 0 && (
+                <span
+                  className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                    v.id === "pack" || v.id === "send"
+                      ? "bg-red-500 text-white"
+                      : active
+                        ? "bg-zinc-200 text-zinc-600"
+                        : "bg-zinc-800 text-zinc-400"
+                  }`}
+                >
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === "posted" && (
+        <PostedList pulls={pulls} onDeleted={removePull} />
+      )}
+      {view === "pack" && (
+        <WorkflowList mode="pack" pulls={pulls} onPatch={patchPull} />
+      )}
+      {view === "send" && (
+        <WorkflowList mode="send" pulls={pulls} onPatch={patchPull} />
+      )}
+      {view === "log" && <TransfersLog pulls={pulls} />}
+    </div>
+  );
+}

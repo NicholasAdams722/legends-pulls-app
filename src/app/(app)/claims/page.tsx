@@ -14,7 +14,7 @@ export default async function MyClaimsPage() {
   const query = supabase
     .from("pulls")
     .select(
-      `id, photo_urls, style_name, claimed_at,
+      `id, photo_urls, style_name, status, claimed_at, packed_at, sent_at,
        from_store:stores!pulls_from_store_id_fkey(*),
        pull_lines(*)`,
     )
@@ -22,7 +22,9 @@ export default async function MyClaimsPage() {
 
   const { data } = await (isWarehouse
     ? query.eq("status", "to_warehouse")
-    : query.eq("status", "claimed").eq("claimed_by_store_id", store.id));
+    : query
+        .in("status", ["claimed", "packed", "sent"])
+        .eq("claimed_by_store_id", store.id));
 
   const pulls = (data ?? []) as unknown as ClaimedPull[];
 

@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
-import type { PullLine, Store } from "@/lib/types";
+import type { PullLine, PullStatus, Store } from "@/lib/types";
 
 export type ClaimedPull = {
   id: string;
   photo_urls: string[];
   style_name: string;
+  status: PullStatus;
   claimed_at: string | null;
+  packed_at: string | null;
+  sent_at: string | null;
   from_store: Store;
   pull_lines: PullLine[];
 };
@@ -72,7 +75,10 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-medium truncate">{p.style_name}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium truncate">{p.style_name}</div>
+                <ClaimStatusBadge status={p.status} />
+              </div>
               <div className="text-xs text-zinc-500 mt-0.5">
                 From Store {p.from_store.code} · {p.from_store.name}
               </div>
@@ -93,4 +99,36 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
       })}
     </ul>
   );
+}
+
+function ClaimStatusBadge({ status }: { status: PullStatus }) {
+  if (status === "claimed") {
+    return (
+      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-950 text-amber-300">
+        Awaiting pack
+      </span>
+    );
+  }
+  if (status === "packed") {
+    return (
+      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-sky-950 text-sky-300">
+        Packed
+      </span>
+    );
+  }
+  if (status === "sent") {
+    return (
+      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-950 text-blue-300">
+        Incoming
+      </span>
+    );
+  }
+  if (status === "to_warehouse") {
+    return (
+      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300">
+        Routed
+      </span>
+    );
+  }
+  return null;
 }

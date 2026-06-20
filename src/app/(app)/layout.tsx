@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAppUser } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TabBar } from "./_components/tab-bar";
 import { SignOutButton } from "./_components/sign-out-button";
 
@@ -9,6 +10,15 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const { user, store } = await requireAppUser();
+
+  // In-flight count drives the badge on the Pulls tab.
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase
+    .from("pulls")
+    .select("id", { count: "exact", head: true })
+    .eq("posted_by", user.id)
+    .in("status", ["claimed", "packed", "to_warehouse"]);
+  const initialPullsBadge = count ?? 0;
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -39,7 +49,11 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="flex-1 overflow-y-auto">{children}</main>
-      <TabBar role={user.role} />
+      <TabBar
+        role={user.role}
+        userId={user.id}
+        initialPullsBadge={initialPullsBadge}
+      />
     </div>
   );
 }
