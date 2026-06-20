@@ -136,7 +136,7 @@ export function TabBar({
   const rightTabs = isWarehouse ? [CLAIMS, HISTORY] : [CLAIMS, HISTORY];
 
   return (
-    <nav className="pb-safe sticky bottom-0 z-10 bg-zinc-950/95 backdrop-blur border-t border-zinc-900">
+    <nav className="pb-safe sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-zinc-200">
       <ul className="flex relative items-stretch">
         {leftTabs.map((tab) => (
           <TabItem
@@ -152,10 +152,10 @@ export function TabBar({
             <Link
               href="/post"
               aria-label="Post a pull"
-              className={`absolute -top-5 w-16 h-16 rounded-full flex items-center justify-center transition-transform active:scale-95 ring-4 ring-zinc-950 ${
+              className={`absolute -top-5 w-16 h-16 rounded-full flex items-center justify-center transition-transform active:scale-95 ring-4 ring-white ${
                 postActive
-                  ? "bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/40"
-                  : "bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/30"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/40"
+                  : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
               }`}
             >
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -195,7 +195,7 @@ function TabItem({
       <Link
         href={tab.href}
         className={`relative flex flex-col items-center justify-center h-14 gap-0.5 ${
-          active ? "text-zinc-50" : "text-zinc-500"
+          active ? "text-zinc-900" : "text-zinc-500"
         }`}
       >
         <div className="relative">

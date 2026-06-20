@@ -28,7 +28,7 @@ export function SignOutButton() {
       onClick={signOut}
       disabled={busy}
       aria-label="Sign out"
-      className="-mr-2 w-10 h-10 flex items-center justify-center text-zinc-400 active:text-zinc-100 disabled:opacity-50"
+      className="-mr-2 w-10 h-10 flex items-center justify-center text-zinc-600 active:text-zinc-900 disabled:opacity-50"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M15 17l5-5-5-5" />

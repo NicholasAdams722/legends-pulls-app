@@ -13,8 +13,8 @@ export default function LoginPage() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-semibold mb-2">Legends Pulls</h1>
-        <p className="text-zinc-400 mb-8 text-sm">
+        <h1 className="text-3xl font-bold mb-2 text-zinc-900">Legends Pulls</h1>
+        <p className="text-zinc-600 mb-8 text-base">
           Enter your 4-digit employee code.
         </p>
 
@@ -27,24 +27,24 @@ export default function LoginPage() {
             autoComplete="off"
             required
             placeholder="0000"
-            className="w-full h-14 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-center text-3xl tracking-[0.5em] font-mono focus:outline-none focus:border-zinc-600"
+            className="w-full h-14 rounded-lg bg-white border border-zinc-300 px-4 text-center text-3xl tracking-[0.5em] font-mono text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-500"
           />
           <button
             type="submit"
             disabled={pending}
-            className="w-full h-12 rounded-lg bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
+            className="w-full h-14 rounded-lg bg-emerald-500 text-white text-base font-semibold disabled:opacity-50"
           >
             {pending ? "Signing in…" : "Sign in"}
           </button>
           {state?.error && (
-            <p className="text-sm text-red-400">{state.error}</p>
+            <p className="text-sm text-red-600">{state.error}</p>
           )}
         </form>
 
         <div className="mt-8 text-center">
           <Link
             href="/signup"
-            className="text-sm text-zinc-400 underline-offset-2 underline"
+            className="text-base text-zinc-700 underline-offset-2 underline font-semibold"
           >
             First time? Sign up
           </Link>

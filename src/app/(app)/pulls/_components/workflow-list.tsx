@@ -37,17 +37,17 @@ const COPY: Record<
     emptyTitle:
       "Nothing to pack. Claimed pulls will appear here grouped by destination.",
     actionRpc: "pack_pull",
-    actionLabel: "Mark Packed",
+    actionLabel: "Packed",
     actionBusy: "Packing…",
-    actionBtnCls: "bg-sky-400 text-zinc-950",
+    actionBtnCls: "bg-orange-500 text-white",
   },
   send: {
     emptyTitle:
       "Nothing to send. Packed pulls will appear here grouped by destination.",
     actionRpc: "send_pull",
-    actionLabel: "Mark Sent",
+    actionLabel: "Sent",
     actionBusy: "Sending…",
-    actionBtnCls: "bg-blue-400 text-zinc-950",
+    actionBtnCls: "bg-emerald-500 text-white",
   },
 };
 
@@ -107,14 +107,14 @@ export function WorkflowList({
 
   if (groups.length === 0) {
     return (
-      <div className="p-10 text-center text-base text-zinc-400">
+      <div className="p-10 text-center text-base text-zinc-500">
         {copy.emptyTitle}
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-zinc-900">
+    <div className="divide-y divide-zinc-200">
       {groups.map((g) => {
         const totalPieces = g.pulls.reduce(
           (s, p) => s + totalQuantity(p.pull_lines),
@@ -123,7 +123,7 @@ export function WorkflowList({
         const color = storeColor(g.code ?? 0);
         return (
           <section key={g.key} className={`border-l-4 ${color.border}`}>
-            <header className="px-4 py-3 bg-zinc-950/80 sticky top-0 backdrop-blur border-b border-zinc-900 z-[1]">
+            <header className="px-4 py-3 bg-white/80 sticky top-0 backdrop-blur border-b border-zinc-200 z-[1]">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span
@@ -131,19 +131,19 @@ export function WorkflowList({
                   >
                     {g.code === null ? "WH" : `Store ${g.code}`}
                   </span>
-                  <span className="text-base font-semibold truncate">
+                  <span className="text-base font-semibold truncate text-zinc-900">
                     {g.code === null
                       ? "Warehouse"
                       : g.label.replace(/^Store \d+ · /, "")}
                   </span>
                 </div>
-                <div className="text-xs text-zinc-400 shrink-0">
+                <div className="text-xs text-zinc-500 shrink-0 font-medium">
                   {g.pulls.length} {g.pulls.length === 1 ? "tote" : "totes"} ·{" "}
                   {totalPieces} pcs
                 </div>
               </div>
             </header>
-            <ul className="divide-y divide-zinc-900">
+            <ul className="divide-y divide-zinc-200">
               {g.pulls.map((p) => {
                 const total = totalQuantity(p.pull_lines);
                 const breakdown = variantBreakdown(p.pull_lines);
@@ -152,7 +152,7 @@ export function WorkflowList({
                 return (
                   <li key={p.id} className="p-4">
                     <div className="flex gap-3">
-                      <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
+                      <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
                         {p.photo_urls[0] && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -164,14 +164,14 @@ export function WorkflowList({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-base font-semibold truncate">
+                        <div className="text-base font-semibold truncate text-zinc-900">
                           {p.style_name}
                         </div>
-                        <div className="text-sm text-zinc-300 mt-1">
+                        <div className="text-sm text-zinc-700 mt-1">
                           {total} {total === 1 ? "pc" : "pcs"}
                           {breakdown && ` · ${breakdown}`}
                         </div>
-                        <div className="text-sm text-zinc-400 mt-1 font-mono truncate">
+                        <div className="text-sm text-zinc-600 mt-1 font-mono truncate">
                           {p.pull_lines
                             .map(
                               (l) =>
@@ -189,7 +189,7 @@ export function WorkflowList({
                     </div>
                     <div className="mt-3">
                       {isWarehouseHandoff ? (
-                        <div className="text-sm text-zinc-300 px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800">
+                        <div className="text-sm text-zinc-700 px-4 py-3 rounded-lg bg-zinc-100 border border-zinc-200">
                           Hand off to warehouse driver
                         </div>
                       ) : (

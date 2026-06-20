@@ -51,7 +51,7 @@ export default async function PullDetailPage({
       <div className="px-2 pt-2 pb-1">
         <Link
           href="/feed"
-          className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-200 -ml-1"
+          className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-800 -ml-1"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
@@ -68,31 +68,33 @@ export default async function PullDetailPage({
             key={i}
             src={u}
             alt=""
-            className="snap-center w-full flex-shrink-0 aspect-square object-cover bg-zinc-900"
+            className="snap-center w-full flex-shrink-0 aspect-square object-cover bg-zinc-100"
           />
         ))}
       </div>
 
       <div className="p-4 space-y-4">
         <div>
-          <div className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">
+          <div className="text-sm font-semibold text-zinc-600 uppercase tracking-wide">
             Store {pull.from_store.code} · {pull.from_store.name}
             {pull.posted_by_user ? ` · ${pull.posted_by_user.name}` : ""}
           </div>
-          <h1 className="text-2xl font-bold mt-1">{pull.style_name}</h1>
-          <div className="text-base text-zinc-300 mt-1">
+          <h1 className="text-2xl font-bold mt-1 text-zinc-900">
+            {pull.style_name}
+          </h1>
+          <div className="text-base text-zinc-700 mt-1">
             {total} {total === 1 ? "piece" : "pieces"} ·{" "}
             {pull.good_type === "soft" ? "Clothing" : "Items"}
           </div>
           {pull.description && (
-            <p className="text-base text-zinc-200 mt-2">{pull.description}</p>
+            <p className="text-base text-zinc-800 mt-2">{pull.description}</p>
           )}
         </div>
 
         {/* Line items table */}
-        <div className="rounded-lg border border-zinc-700 overflow-hidden">
+        <div className="rounded-lg border border-zinc-300 overflow-hidden">
           <table className="w-full text-base">
-            <thead className="bg-zinc-900 text-zinc-300 text-sm">
+            <thead className="bg-zinc-100 text-zinc-700 text-sm">
               <tr>
                 <th className="px-3 py-3 text-left font-semibold">SKU</th>
                 <th className="px-3 py-3 text-left font-semibold">Color</th>
@@ -102,7 +104,7 @@ export default async function PullDetailPage({
             </thead>
             <tbody>
               {pull.pull_lines.map((l) => (
-                <tr key={l.id} className="border-t border-zinc-800">
+                <tr key={l.id} className="border-t border-zinc-200">
                   <td className="px-3 py-3 font-mono font-semibold">{l.sku}</td>
                   <td className="px-3 py-3">{l.color ?? "—"}</td>
                   <td className="px-3 py-3">{l.size ?? "—"}</td>
@@ -116,12 +118,12 @@ export default async function PullDetailPage({
         </div>
 
         {pull.status !== "available" ? (
-          <div className="rounded-lg bg-zinc-900 border border-zinc-700 p-4 text-base text-zinc-300">
+          <div className="rounded-lg bg-zinc-100 border border-zinc-200 p-4 text-base text-zinc-700">
             This pull is no longer available (status:{" "}
-            <span className="text-zinc-100 font-semibold">{pull.status}</span>).
+            <span className="text-zinc-900 font-semibold">{pull.status}</span>).
           </div>
         ) : isOwn ? (
-          <div className="rounded-lg bg-zinc-900 border border-zinc-700 p-4 text-base text-zinc-300">
+          <div className="rounded-lg bg-zinc-100 border border-zinc-200 p-4 text-base text-zinc-700">
             You posted this pull. Manage it from My Pulls.
           </div>
         ) : (

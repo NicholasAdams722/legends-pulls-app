@@ -112,18 +112,18 @@ export function HistoryView({
 
   return (
     <div>
-      <div className="px-4 py-3 space-y-2 border-b border-zinc-900">
+      <div className="px-4 py-3 space-y-2 border-b border-zinc-200">
         <input
           placeholder="Search style or SKU"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-700 px-3 text-base focus:outline-none focus:border-zinc-500"
+          className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500"
         />
         <div className="flex gap-2 overflow-x-auto">
           <select
             value={storeFilter}
             onChange={(e) => setStoreFilter(e.target.value)}
-            className="h-11 px-3 rounded-full text-sm font-semibold bg-zinc-900 border border-zinc-700 text-zinc-200"
+            className="h-11 px-3 rounded-full text-sm font-semibold bg-white border border-zinc-300 text-zinc-800"
           >
             <option value="all">All stores</option>
             {stores.map((s) => (
@@ -134,7 +134,7 @@ export function HistoryView({
           </select>
           <button
             onClick={exportCsv}
-            className="shrink-0 h-11 px-4 rounded-full text-sm font-semibold bg-zinc-50 text-zinc-950"
+            className="shrink-0 h-11 px-4 rounded-full text-sm font-semibold bg-zinc-900 text-white"
           >
             Export CSV ({filtered.length})
           </button>
@@ -142,11 +142,11 @@ export function HistoryView({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-400">
+        <div className="p-10 text-center text-base text-zinc-500">
           No matching transfers.
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-900">
+        <ul className="divide-y divide-zinc-200">
           {filtered.map((p) => {
             const toLabel = p.claimed_by_store
               ? `Store ${p.claimed_by_store.code}`
@@ -154,21 +154,21 @@ export function HistoryView({
             return (
               <li key={p.id} className="p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-base font-semibold truncate">
+                  <div className="text-base font-semibold truncate text-zinc-900">
                     {p.style_name}
                   </div>
-                  <div className="text-xs font-bold uppercase tracking-wide text-zinc-300 shrink-0">
+                  <div className="text-xs font-bold uppercase tracking-wide text-zinc-600 shrink-0">
                     Store {p.from_store.code} → {toLabel}
                   </div>
                 </div>
-                <div className="text-sm text-zinc-300 mt-1">
+                <div className="text-sm text-zinc-700 mt-1">
                   {p.received_at
                     ? `Received ${new Date(p.received_at).toLocaleDateString()}`
                     : "Routed to warehouse"}
                   {p.posted_by_user && ` · posted by ${p.posted_by_user.name}`}
                   {p.claimed_by_user && ` · received by ${p.claimed_by_user.name}`}
                 </div>
-                <div className="text-sm text-zinc-300 mt-1 font-mono">
+                <div className="text-sm text-zinc-700 mt-1 font-mono">
                   {p.pull_lines
                     .map(
                       (l) =>

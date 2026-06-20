@@ -22,21 +22,21 @@ export default async function AppLayout({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="pt-safe sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-900">
+      <header className="pt-safe sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-200">
         <div className="px-4 py-2 flex items-center justify-between gap-3">
-          <div className="text-xs font-medium text-zinc-300 truncate">
+          <div className="text-sm font-semibold text-zinc-900 truncate">
             Store {store.code}
-            <span className="text-zinc-500"> · {store.name}</span>
+            <span className="text-zinc-500 font-normal"> · {store.name}</span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <div className="text-[11px] text-zinc-500 truncate max-w-[6rem]">
+            <div className="text-xs text-zinc-500 truncate max-w-[6rem]">
               {user.name}
             </div>
             {user.role === "admin" && (
               <Link
                 href="/admin/users"
                 aria-label="Admin"
-                className="w-10 h-10 flex items-center justify-center text-zinc-400 active:text-zinc-100"
+                className="w-10 h-10 flex items-center justify-center text-zinc-600 active:text-zinc-900"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="8" r="4" />

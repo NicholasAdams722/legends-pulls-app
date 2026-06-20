@@ -101,17 +101,17 @@ export function UserRow({
             </div>
           </div>
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex gap-2">
           <button
             onClick={() => setMode("edit")}
-            className="text-xs px-3 h-8 rounded-full bg-zinc-900 border border-zinc-800"
+            className="text-xs px-3 h-8 rounded-full bg-white border border-zinc-300"
           >
             Edit
           </button>
           <button
             onClick={() => setMode("reset")}
-            className="text-xs px-3 h-8 rounded-full bg-zinc-900 border border-zinc-800"
+            className="text-xs px-3 h-8 rounded-full bg-white border border-zinc-300"
           >
             Reset code
           </button>
@@ -119,7 +119,7 @@ export function UserRow({
             <button
               onClick={remove}
               disabled={pending}
-              className="text-xs px-3 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-red-400 disabled:opacity-50"
+              className="text-xs px-3 h-8 rounded-full bg-white border border-zinc-300 text-red-600 disabled:opacity-50"
             >
               Remove
             </button>
@@ -131,7 +131,7 @@ export function UserRow({
 
   if (mode === "reset") {
     return (
-      <li className="p-3 space-y-2 bg-zinc-950">
+      <li className="p-3 space-y-2 bg-zinc-50">
         <div className="text-xs text-zinc-400">
           New code for {user.name}
         </div>
@@ -144,9 +144,9 @@ export function UserRow({
           onChange={(e) =>
             setNewCode(e.target.value.replace(/\D/g, "").slice(0, 4))
           }
-          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base tracking-widest text-center"
+          className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-4 text-base tracking-widest text-center"
         />
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -154,14 +154,14 @@ export function UserRow({
               setNewCode("");
               setError(null);
             }}
-            className="flex-1 h-11 rounded-lg bg-zinc-900 border border-zinc-800 font-medium"
+            className="flex-1 h-11 rounded-lg bg-white border border-zinc-300 font-medium"
           >
             Cancel
           </button>
           <button
             onClick={resetCode}
             disabled={pending || newCode.length !== 4}
-            className="flex-1 h-11 rounded-lg bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
+            className="flex-1 h-11 rounded-lg bg-emerald-500 text-white font-semibold disabled:opacity-50"
           >
             {pending ? "Saving…" : "Save code"}
           </button>
@@ -171,16 +171,16 @@ export function UserRow({
   }
 
   return (
-    <li className="p-3 space-y-2 bg-zinc-950">
+    <li className="p-3 space-y-2 bg-zinc-50">
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="w-full h-11 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base"
+        className="w-full h-11 rounded-lg bg-white border border-zinc-300 px-3 text-base"
       />
       <select
         value={storeId}
         onChange={(e) => setStoreId(e.target.value)}
-        className="w-full h-11 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base"
+        className="w-full h-11 rounded-lg bg-white border border-zinc-300 px-3 text-base"
       >
         {stores.map((s) => (
           <option key={s.id} value={s.id}>
@@ -191,13 +191,13 @@ export function UserRow({
       <select
         value={role}
         onChange={(e) => setRole(e.target.value as UserRole)}
-        className="w-full h-11 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base"
+        className="w-full h-11 rounded-lg bg-white border border-zinc-300 px-3 text-base"
       >
         <option value="manager">Manager</option>
         <option value="warehouse">Warehouse</option>
         <option value="admin">Admin</option>
       </select>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={() => {
@@ -207,14 +207,14 @@ export function UserRow({
             setRole(user.role);
             setError(null);
           }}
-          className="flex-1 h-11 rounded-lg bg-zinc-900 border border-zinc-800 font-medium"
+          className="flex-1 h-11 rounded-lg bg-white border border-zinc-300 font-medium"
         >
           Cancel
         </button>
         <button
           onClick={save}
           disabled={pending}
-          className="flex-1 h-11 rounded-lg bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
+          className="flex-1 h-11 rounded-lg bg-emerald-500 text-white font-semibold disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save"}
         </button>

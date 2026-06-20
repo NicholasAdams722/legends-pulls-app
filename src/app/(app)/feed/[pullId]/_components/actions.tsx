@@ -35,19 +35,19 @@ export function PullActions({ pullId }: { pullId: string }) {
         <button
           onClick={() => call("pass")}
           disabled={busy !== null}
-          className="flex-1 h-16 rounded-xl bg-zinc-900 border border-zinc-700 text-lg font-semibold text-zinc-200 disabled:opacity-50 active:scale-[0.98]"
+          className="flex-1 h-16 rounded-xl bg-white border border-zinc-300 text-lg font-semibold text-zinc-800 disabled:opacity-50 active:scale-[0.98]"
         >
           {busy === "pass" ? "Passing…" : "Pass"}
         </button>
         <button
           onClick={() => call("claim")}
           disabled={busy !== null}
-          className="flex-1 h-16 rounded-xl bg-emerald-500 text-zinc-950 text-lg font-bold disabled:opacity-50 active:scale-[0.98]"
+          className="flex-1 h-16 rounded-xl bg-emerald-500 text-white text-lg font-bold disabled:opacity-50 active:scale-[0.98]"
         >
           {busy === "claim" ? "Claiming…" : "Claim"}
         </button>
       </div>
-      {error && <p className="text-base text-red-400">{error}</p>}
+      {error && <p className="text-base text-red-600">{error}</p>}
     </div>
   );
 }

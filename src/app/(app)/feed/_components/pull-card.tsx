@@ -21,9 +21,9 @@ export function PullCard({ pull }: { pull: FeedPull }) {
   return (
     <Link
       href={`/feed/${pull.id}`}
-      className={`block rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 border-l-4 ${c.border}`}
+      className={`block rounded-xl overflow-hidden bg-white border border-zinc-200 border-l-4 shadow-sm ${c.border}`}
     >
-      <div className="aspect-square bg-zinc-950 relative">
+      <div className="aspect-square bg-zinc-100 relative">
         {pull.photo_urls[0] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -44,14 +44,14 @@ export function PullCard({ pull }: { pull: FeedPull }) {
         >
           STORE {pull.from_store.code}
         </div>
-        <div className="text-base font-semibold mt-2 leading-tight line-clamp-2">
+        <div className="text-base font-semibold mt-2 leading-tight line-clamp-2 text-zinc-900">
           {pull.style_name}
         </div>
-        <div className="text-sm text-zinc-300 mt-1.5">
+        <div className="text-sm text-zinc-700 mt-1.5">
           {total} {total === 1 ? "pc" : "pcs"}
         </div>
         {breakdown && (
-          <div className="text-xs text-zinc-400 mt-1 leading-snug line-clamp-2">
+          <div className="text-xs text-zinc-500 mt-1 leading-snug line-clamp-2">
             {breakdown}
           </div>
         )}

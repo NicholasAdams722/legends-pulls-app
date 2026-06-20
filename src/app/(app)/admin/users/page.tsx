@@ -26,7 +26,7 @@ export default async function AdminUsersPage() {
       <div className="px-2 pt-2 pb-1">
         <Link
           href="/feed"
-          className="inline-flex items-center gap-1 h-10 px-3 text-sm text-zinc-300 -ml-1"
+          className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-800 -ml-1"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
@@ -35,8 +35,8 @@ export default async function AdminUsersPage() {
         </Link>
       </div>
       <div className="px-4 pb-2">
-        <h1 className="text-xl font-semibold">Team members</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">
+        <h1 className="text-xl font-bold text-zinc-900">Team members</h1>
+        <p className="text-sm text-zinc-600 mt-1">
           Add a new manager, edit their store, or send them a sign-in code if
           email is rate-limited.
         </p>
@@ -46,7 +46,7 @@ export default async function AdminUsersPage() {
         <AddUserForm stores={stores} />
       </div>
 
-      <ul className="divide-y divide-zinc-900 border-t border-zinc-900">
+      <ul className="divide-y divide-zinc-200 border-t border-zinc-200">
         {users.map((u) => (
           <UserRow key={u.id} user={u} stores={stores} isSelf={u.id === me.id} />
         ))}

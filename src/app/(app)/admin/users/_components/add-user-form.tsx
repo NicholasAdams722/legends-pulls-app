@@ -42,7 +42,7 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full h-12 rounded-lg bg-emerald-500 text-zinc-950 font-semibold"
+        className="w-full h-12 rounded-lg bg-emerald-500 text-white font-semibold"
       >
         + Add team member
       </button>
@@ -52,14 +52,14 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
   return (
     <form
       onSubmit={submit}
-      className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3"
+      className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3"
     >
       <input
         required
         placeholder="Full name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base"
+        className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-4 text-base"
       />
       <input
         required
@@ -69,12 +69,12 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
         placeholder="4-digit code"
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base tracking-widest text-center"
+        className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-4 text-base tracking-widest text-center"
       />
       <select
         value={storeId}
         onChange={(e) => setStoreId(e.target.value)}
-        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base"
+        className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-3 text-base"
       >
         {stores.map((s) => (
           <option key={s.id} value={s.id}>
@@ -85,13 +85,13 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
       <select
         value={role}
         onChange={(e) => setRole(e.target.value as UserRole)}
-        className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base"
+        className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-3 text-base"
       >
         <option value="manager">Manager</option>
         <option value="warehouse">Warehouse</option>
         <option value="admin">Admin</option>
       </select>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           type="button"
@@ -100,14 +100,14 @@ export function AddUserForm({ stores }: { stores: Store[] }) {
             setOpen(false);
           }}
           disabled={pending}
-          className="flex-1 h-12 rounded-lg bg-zinc-900 border border-zinc-800 font-medium"
+          className="flex-1 h-12 rounded-lg bg-white border border-zinc-300 font-medium"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 h-12 rounded-lg bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
+          className="flex-1 h-12 rounded-lg bg-emerald-500 text-white font-semibold disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add user"}
         </button>

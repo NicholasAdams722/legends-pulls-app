@@ -223,7 +223,7 @@ export function PullForm({
   return (
     <form onSubmit={onSubmit} className="p-4 pb-24 space-y-6">
       <section>
-        <h2 className="text-sm font-medium text-zinc-400 mb-2">Photos</h2>
+        <h2 className="text-sm font-medium text-zinc-700 mb-2">Photos</h2>
         <div className="flex flex-wrap gap-2">
           {photos.map((p, i) => (
             <div key={`${p.url}-${i}`} className="relative w-20 h-20">
@@ -231,19 +231,19 @@ export function PullForm({
               <img
                 src={p.url}
                 alt=""
-                className="w-full h-full object-cover rounded-lg border border-zinc-800"
+                className="w-full h-full object-cover rounded-lg border border-zinc-300"
               />
               <button
                 type="button"
                 onClick={() => removePhoto(i)}
-                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-zinc-900 border border-zinc-700 text-xs"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-zinc-300 text-xs"
               >
                 ×
               </button>
             </div>
           ))}
           {photos.length < 4 && (
-            <label className="w-20 h-20 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center text-zinc-500 text-xs">
+            <label className="w-20 h-20 rounded-lg border-2 border-dashed border-zinc-300 flex items-center justify-center text-zinc-500 text-xs">
               {uploadingPhoto ? "…" : "+ Photo"}
               <input
                 type="file"
@@ -259,7 +259,7 @@ export function PullForm({
       </section>
 
       <section className="space-y-2">
-        <label className="text-sm font-medium text-zinc-400 block">
+        <label className="text-sm font-medium text-zinc-700 block">
           Style name
         </label>
         <input
@@ -267,7 +267,7 @@ export function PullForm({
           value={styleName}
           onChange={(e) => setStyleName(e.target.value)}
           placeholder='e.g. "Bar Hopping tee"'
-          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base focus:outline-none focus:border-zinc-600"
+          className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-4 text-base focus:outline-none focus:border-zinc-600"
         />
         <div className="flex gap-2 pt-2">
           {(["soft", "hard"] as const).map((t) => (
@@ -277,8 +277,8 @@ export function PullForm({
               onClick={() => setGoodType(t)}
               className={`flex-1 h-10 rounded-lg text-sm font-medium border ${
                 goodType === t
-                  ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                  : "bg-zinc-900 text-zinc-300 border-zinc-800"
+                  ? "bg-zinc-900 text-white border-zinc-900"
+                  : "bg-white text-zinc-800 border-zinc-300"
               }`}
             >
               {t === "soft" ? "Clothing (sized)" : "Items"}
@@ -288,13 +288,13 @@ export function PullForm({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-400">
+        <h2 className="text-sm font-medium text-zinc-700">
           Line items (SKU + qty)
         </h2>
         {lines.map((line, idx) => (
           <div
             key={line.key}
-            className="rounded-lg border border-zinc-800 bg-zinc-950 p-3 space-y-3"
+            className="rounded-lg border border-zinc-300 bg-white p-3 space-y-3"
           >
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span>Line {idx + 1}</span>
@@ -321,12 +321,12 @@ export function PullForm({
                     sku: e.target.value.replace(/\D/g, "").slice(0, 5),
                   })
                 }
-                className="flex-1 h-11 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-base tracking-wider focus:outline-none focus:border-zinc-600"
+                className="flex-1 h-11 rounded-lg bg-white border border-zinc-300 px-3 text-base tracking-wider focus:outline-none focus:border-zinc-600"
               />
               <button
                 type="button"
                 onClick={() => setScanningKey(line.key)}
-                className="h-11 px-3 rounded-lg bg-zinc-900 border border-zinc-800 text-sm"
+                className="h-11 px-3 rounded-lg bg-white border border-zinc-300 text-sm"
               >
                 Scan
               </button>
@@ -359,7 +359,7 @@ export function PullForm({
                     quantity: Math.max(1, line.quantity - 1),
                   })
                 }
-                className="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 text-xl"
+                className="w-11 h-11 rounded-lg bg-white border border-zinc-300 text-xl"
               >
                 −
               </button>
@@ -372,14 +372,14 @@ export function PullForm({
                     quantity: Number.isNaN(n) ? 1 : Math.max(1, n),
                   });
                 }}
-                className="w-16 h-11 text-center rounded-lg bg-zinc-900 border border-zinc-800 text-base"
+                className="w-16 h-11 text-center rounded-lg bg-white border border-zinc-300 text-base"
               />
               <button
                 type="button"
                 onClick={() =>
                   updateLine(line.key, { quantity: line.quantity + 1 })
                 }
-                className="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 text-xl"
+                className="w-11 h-11 rounded-lg bg-white border border-zinc-300 text-xl"
               >
                 +
               </button>
@@ -391,14 +391,14 @@ export function PullForm({
           <button
             type="button"
             onClick={addLine}
-            className="flex-1 h-11 rounded-lg border border-zinc-800 bg-zinc-900 text-sm font-medium"
+            className="flex-1 h-11 rounded-lg border border-zinc-300 bg-white text-sm font-medium text-zinc-800"
           >
             + Add line
           </button>
           <button
             type="button"
             onClick={duplicateLastLine}
-            className="flex-1 h-11 rounded-lg border border-zinc-800 bg-zinc-900 text-sm font-medium"
+            className="flex-1 h-11 rounded-lg border border-zinc-300 bg-white text-sm font-medium text-zinc-800"
           >
             Duplicate last
           </button>
@@ -406,7 +406,7 @@ export function PullForm({
       </section>
 
       <section>
-        <label className="text-sm font-medium text-zinc-400 block mb-2">
+        <label className="text-sm font-medium text-zinc-700 block mb-2">
           Description (optional)
         </label>
         <input
@@ -414,17 +414,17 @@ export function PullForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="One-line note"
           maxLength={140}
-          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-800 px-4 text-base focus:outline-none focus:border-zinc-600"
+          className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-4 text-base focus:outline-none focus:border-zinc-600"
         />
       </section>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-zinc-950/95 backdrop-blur border-t border-zinc-900">
+      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-white/95 backdrop-blur border-t border-zinc-200">
         <button
           type="submit"
           disabled={busy}
-          className="w-full h-14 rounded-xl bg-emerald-500 text-zinc-950 text-base font-semibold disabled:opacity-50 active:scale-[0.99]"
+          className="w-full h-14 rounded-xl bg-emerald-500 text-white text-base font-semibold disabled:opacity-50 active:scale-[0.99]"
         >
           {busy
             ? mode === "create"
@@ -476,8 +476,8 @@ function ChipRow({
             onClick={() => onPick(opt)}
             className={`h-9 px-3 rounded-full text-sm border ${
               value === opt
-                ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                : "bg-zinc-900 text-zinc-200 border-zinc-800"
+                ? "bg-zinc-900 text-white border-zinc-900"
+                : "bg-white text-zinc-800 border-zinc-300"
             }`}
           >
             {opt}
@@ -507,13 +507,13 @@ function ChipRow({
                 setAdding(false);
               }
             }}
-            className="h-9 w-20 rounded-full bg-zinc-900 border border-zinc-700 px-3 text-sm"
+            className="h-9 w-20 rounded-full bg-white border border-zinc-300 px-3 text-sm"
           />
         ) : (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="h-9 px-3 rounded-full text-sm border border-dashed border-zinc-700 text-zinc-400"
+            className="h-9 px-3 rounded-full text-sm border border-dashed border-zinc-300 text-zinc-700"
           >
             +
           </button>

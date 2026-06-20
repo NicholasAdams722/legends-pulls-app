@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MyPull } from "./my-pulls-tabs";
 
 type Range = "today" | "week" | "all";
@@ -10,6 +10,8 @@ const RANGES: { id: Range; label: string }[] = [
   { id: "week", label: "This week" },
   { id: "all", label: "All" },
 ];
+
+const STORAGE_KEY = "legends.pos-logged-line-ids";
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -32,8 +34,54 @@ function csvCell(v: string | number | null | undefined): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function loadLogged(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveLogged(set: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+  } catch {
+    // quota or privacy mode — fail silently
+  }
+}
+
 export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
   const [range, setRange] = useState<Range>("today");
+  const [logged, setLogged] = useState<Set<string>>(() => new Set());
+  const [hydrated, setHydrated] = useState(false);
+  const [hideLogged, setHideLogged] = useState(false);
+
+  // Hydrate from localStorage after mount to avoid SSR mismatch.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLogged(loadLogged());
+    setHydrated(true);
+  }, []);
+
+  // Persist whenever the logged set changes, but only after hydration
+  // so we don't overwrite the stored set with an empty one on mount.
+  useEffect(() => {
+    if (hydrated) saveLogged(logged);
+  }, [logged, hydrated]);
+
+  const toggleLogged = useCallback((lineId: string) => {
+    setLogged((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) next.delete(lineId);
+      else next.add(lineId);
+      return next;
+    });
+  }, []);
 
   const rows = useMemo(() => {
     const now = new Date();
@@ -100,6 +148,16 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
     return out;
   }, [pulls, range]);
 
+  const visibleRows = useMemo(
+    () => (hideLogged ? rows.filter((r) => !logged.has(r.lineId)) : rows),
+    [rows, hideLogged, logged],
+  );
+
+  const loggedCount = useMemo(
+    () => rows.reduce((n, r) => n + (logged.has(r.lineId) ? 1 : 0), 0),
+    [rows, logged],
+  );
+
   function exportCsv() {
     const header = [
       "sent_at",
@@ -111,6 +169,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       "size",
       "qty",
       "status",
+      "pos_logged",
     ];
     const lines = [header.join(",")];
     for (const r of rows) {
@@ -125,6 +184,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
           r.size ?? "",
           r.qty,
           r.status,
+          logged.has(r.lineId) ? "yes" : "no",
         ]
           .map(csvCell)
           .join(","),
@@ -141,19 +201,37 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
     URL.revokeObjectURL(url);
   }
 
+  function clearLogged() {
+    if (loggedCount === 0) return;
+    if (
+      !confirm(
+        `Uncheck all ${loggedCount} entered ${
+          loggedCount === 1 ? "item" : "items"
+        }?`,
+      )
+    ) {
+      return;
+    }
+    setLogged((prev) => {
+      const next = new Set(prev);
+      for (const r of rows) next.delete(r.lineId);
+      return next;
+    });
+  }
+
   return (
     <div>
-      <div className="px-4 py-3 flex gap-2 border-b border-zinc-900">
+      <div className="px-4 py-3 flex gap-2 border-b border-zinc-200 overflow-x-auto">
         {RANGES.map((r) => {
           const active = r.id === range;
           return (
             <button
               key={r.id}
               onClick={() => setRange(r.id)}
-              className={`h-11 px-4 rounded-full text-sm font-semibold border ${
+              className={`shrink-0 h-11 px-4 rounded-full text-sm font-semibold border ${
                 active
-                  ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                  : "bg-zinc-900 text-zinc-200 border-zinc-700"
+                  ? "bg-zinc-900 text-white border-zinc-900"
+                  : "bg-white text-zinc-700 border-zinc-300"
               }`}
             >
               {r.label}
@@ -163,53 +241,134 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
         <button
           onClick={exportCsv}
           disabled={rows.length === 0}
-          className="ml-auto h-11 px-4 rounded-full text-sm font-semibold bg-zinc-50 text-zinc-950 disabled:opacity-40"
+          className="ml-auto shrink-0 h-11 px-4 rounded-full text-sm font-semibold bg-zinc-900 text-white disabled:opacity-40"
         >
-          Export CSV ({rows.length})
+          Export CSV
         </button>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-400">
-          No transfers sent in this range.
+      {rows.length > 0 && (
+        <div className="px-4 py-2.5 flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50">
+          <div className="text-sm font-semibold text-zinc-800">
+            {loggedCount} of {rows.length} entered
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setHideLogged((v) => !v)}
+              className={`h-9 px-3 rounded-full text-xs font-semibold border ${
+                hideLogged
+                  ? "bg-zinc-900 text-white border-zinc-900"
+                  : "bg-white text-zinc-700 border-zinc-300"
+              }`}
+            >
+              {hideLogged ? "Show all" : "Hide entered"}
+            </button>
+            <button
+              onClick={clearLogged}
+              disabled={loggedCount === 0}
+              className="h-9 px-3 rounded-full text-xs font-semibold bg-white text-red-600 border border-zinc-300 disabled:opacity-40"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {visibleRows.length === 0 ? (
+        <div className="p-10 text-center text-base text-zinc-500">
+          {rows.length === 0
+            ? "No transfers sent in this range."
+            : "All transfers entered. Nice work."}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-900">
-          {rows.map((r) => (
-            <li key={r.lineId} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-base font-mono font-semibold text-zinc-100">
-                  {r.sku}
-                  {(r.color || r.size) && (
-                    <span className="text-zinc-400 font-normal">
-                      {" "}
-                      ({[r.color, r.size].filter(Boolean).join("/")})
-                    </span>
-                  )}
-                </div>
-                <div className="text-lg font-bold">×{r.qty}</div>
-              </div>
-              <div className="text-sm text-zinc-300 mt-1 flex items-center justify-between gap-2">
-                <span className="font-semibold">
-                  Store {r.fromCode} → {r.toLabel}
-                </span>
-                <span className="text-zinc-400">
-                  {r.sentAt
-                    ? new Date(r.sentAt).toLocaleString([], {
-                        month: "numeric",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })
-                    : "—"}
-                </span>
-              </div>
-              <div className="text-sm text-zinc-400 mt-1 truncate">
-                {r.style}
-              </div>
-            </li>
-          ))}
+        <ul className="divide-y divide-zinc-200">
+          {visibleRows.map((r) => {
+            const isLogged = logged.has(r.lineId);
+            return (
+              <li key={r.lineId}>
+                <button
+                  type="button"
+                  onClick={() => toggleLogged(r.lineId)}
+                  className={`w-full px-4 py-3 flex gap-3 items-start text-left active:bg-zinc-100 ${
+                    isLogged ? "bg-zinc-50" : "bg-white"
+                  }`}
+                >
+                  <Checkbox checked={isLogged} />
+                  <div className={`flex-1 min-w-0 ${isLogged ? "opacity-50" : ""}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div
+                        className={`text-base font-mono font-semibold text-zinc-900 ${
+                          isLogged ? "line-through" : ""
+                        }`}
+                      >
+                        {r.sku}
+                        {(r.color || r.size) && (
+                          <span className="text-zinc-500 font-normal">
+                            {" "}
+                            ({[r.color, r.size].filter(Boolean).join("/")})
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className={`text-lg font-bold text-zinc-900 ${
+                          isLogged ? "line-through" : ""
+                        }`}
+                      >
+                        ×{r.qty}
+                      </div>
+                    </div>
+                    <div className="text-sm text-zinc-700 mt-1 flex items-center justify-between gap-2">
+                      <span className="font-semibold">
+                        Store {r.fromCode} → {r.toLabel}
+                      </span>
+                      <span className="text-zinc-500">
+                        {r.sentAt
+                          ? new Date(r.sentAt).toLocaleString([], {
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="text-sm text-zinc-500 mt-1 truncate">
+                      {r.style}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <div
+      className={`shrink-0 w-7 h-7 rounded-md border-2 flex items-center justify-center mt-0.5 ${
+        checked
+          ? "bg-emerald-500 border-emerald-500"
+          : "bg-white border-zinc-400"
+      }`}
+      aria-hidden
+    >
+      {checked && (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12l5 5L20 7" />
+        </svg>
       )}
     </div>
   );

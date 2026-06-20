@@ -18,8 +18,10 @@ export default async function SignupPage() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-semibold mb-2">Create your account</h1>
-        <p className="text-zinc-400 mb-8 text-sm">
+        <h1 className="text-3xl font-bold mb-2 text-zinc-900">
+          Create your account
+        </h1>
+        <p className="text-zinc-600 mb-8 text-base">
           Pick a 4-digit code you&apos;ll remember. You&apos;ll use it to sign
           in every time.
         </p>
@@ -29,7 +31,7 @@ export default async function SignupPage() {
         <div className="mt-8 text-center">
           <Link
             href="/login"
-            className="text-sm text-zinc-400 underline-offset-2 underline"
+            className="text-base text-zinc-700 underline-offset-2 underline font-semibold"
           >
             Already have a code? Sign in
           </Link>

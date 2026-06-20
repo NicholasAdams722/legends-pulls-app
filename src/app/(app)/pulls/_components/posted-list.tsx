@@ -45,30 +45,30 @@ export function PostedList({
 
   return (
     <div>
-      <div className="px-4 py-3 border-b border-zinc-900">
+      <div className="px-4 py-3 border-b border-zinc-200">
         <input
           placeholder="Search style or SKU"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-700 px-3 text-base focus:outline-none focus:border-zinc-500"
+          className="w-full h-12 rounded-lg bg-white border border-zinc-300 px-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500"
         />
       </div>
 
       {visible.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-400">
+        <div className="p-10 text-center text-base text-zinc-500">
           {search
             ? "No available pulls match that search."
             : "No pulls waiting for a claim. Tap + to post one."}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-900">
+        <ul className="divide-y divide-zinc-200">
           {visible.map((p) => {
             const total = totalQuantity(p.pull_lines);
             const breakdown = variantBreakdown(p.pull_lines);
             return (
               <li key={p.id} className="p-4">
                 <div className="flex gap-3">
-                  <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
+                  <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
                     {p.photo_urls[0] && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -80,14 +80,14 @@ export function PostedList({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-base font-semibold truncate">
+                    <div className="text-base font-semibold truncate text-zinc-900">
                       {p.style_name}
                     </div>
-                    <div className="text-sm text-zinc-300 mt-1">
+                    <div className="text-sm text-zinc-700 mt-1">
                       {total} {total === 1 ? "pc" : "pcs"}
                       {breakdown && ` · ${breakdown}`}
                     </div>
-                    <div className="text-sm text-zinc-400 mt-1">
+                    <div className="text-sm text-zinc-500 mt-1">
                       Posted {new Date(p.created_at).toLocaleDateString()}
                     </div>
                   </div>
@@ -95,14 +95,14 @@ export function PostedList({
                 <div className="flex gap-2 mt-3">
                   <Link
                     href={`/pulls/${p.id}/edit`}
-                    className="flex-1 h-12 inline-flex items-center justify-center rounded-lg bg-zinc-900 border border-zinc-700 text-base font-semibold"
+                    className="flex-1 h-12 inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 text-base font-semibold text-zinc-800"
                   >
                     Edit
                   </Link>
                   <button
                     onClick={() => deletePull(p.id)}
                     disabled={deleting === p.id}
-                    className="flex-1 h-12 rounded-lg bg-zinc-900 border border-zinc-700 text-base font-semibold text-red-400 disabled:opacity-50"
+                    className="flex-1 h-12 rounded-lg bg-white border border-zinc-300 text-base font-semibold text-red-600 disabled:opacity-50"
                   >
                     {deleting === p.id ? "Deleting…" : "Delete"}
                   </button>

@@ -54,7 +54,7 @@ export function FeedList({
 
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-900">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-zinc-200">
         <div className="px-4 py-2.5 flex gap-2 overflow-x-auto">
           <FilterChip
             active={storeFilter === "all"}
@@ -75,7 +75,7 @@ export function FeedList({
               </FilterChip>
             );
           })}
-          <div className="w-px bg-zinc-800 mx-1" />
+          <div className="w-px bg-zinc-300 mx-1" />
           {(["all", "soft", "hard"] as const).map((t) => (
             <FilterChip
               key={t}
@@ -89,7 +89,7 @@ export function FeedList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-10 text-center text-base text-zinc-400">
+        <div className="p-10 text-center text-base text-zinc-500">
           Nothing available right now.
         </div>
       ) : (
@@ -114,8 +114,8 @@ function FilterChip({
   activeClass?: string;
   children: React.ReactNode;
 }) {
-  const inactive = "bg-zinc-900 text-zinc-200 border-zinc-700";
-  const defaultActive = "bg-zinc-50 text-zinc-950 border-zinc-50";
+  const inactive = "bg-white text-zinc-700 border-zinc-300";
+  const defaultActive = "bg-zinc-900 text-white border-zinc-900";
   return (
     <button
       onClick={onClick}

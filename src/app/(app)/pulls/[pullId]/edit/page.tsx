@@ -42,7 +42,7 @@ export default async function EditPullPage({
       <div className="px-2 pt-2 pb-1">
         <Link
           href="/pulls"
-          className="inline-flex items-center gap-1 h-10 px-3 text-sm text-zinc-300 -ml-1"
+          className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-800 -ml-1"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
@@ -51,7 +51,7 @@ export default async function EditPullPage({
         </Link>
       </div>
       <div className="px-4 pb-2">
-        <h1 className="text-xl font-semibold">Edit pull</h1>
+        <h1 className="text-xl font-bold text-zinc-900">Edit pull</h1>
       </div>
       <PullForm mode="edit" userId={user.id} pull={pull} />
     </div>

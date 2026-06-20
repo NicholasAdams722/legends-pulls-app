@@ -151,14 +151,18 @@ export function MyPullsTabs({
                   : v.id === "log"
                     ? counts.log
                     : null;
+          const activeCls =
+            v.id === "pack"
+              ? "bg-orange-500 text-white border-orange-500"
+              : v.id === "send"
+                ? "bg-emerald-500 text-white border-emerald-500"
+                : "bg-zinc-900 text-white border-zinc-900";
           return (
             <button
               key={v.id}
               onClick={() => setView(v.id)}
               className={`shrink-0 h-11 px-4 rounded-full text-base font-semibold border ${
-                active
-                  ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                  : "bg-zinc-900 text-zinc-200 border-zinc-700"
+                active ? activeCls : "bg-white text-zinc-700 border-zinc-300"
               }`}
             >
               {v.label}
@@ -166,10 +170,12 @@ export function MyPullsTabs({
                 <span
                   className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold leading-none ${
                     v.id === "pack" || v.id === "send"
-                      ? "bg-red-500 text-white"
+                      ? active
+                        ? "bg-white/30 text-white"
+                        : "bg-red-500 text-white"
                       : active
-                        ? "bg-zinc-200 text-zinc-600"
-                        : "bg-zinc-800 text-zinc-300"
+                        ? "bg-zinc-700 text-zinc-100"
+                        : "bg-zinc-200 text-zinc-700"
                   }`}
                 >
                   {badge > 99 ? "99+" : badge}
