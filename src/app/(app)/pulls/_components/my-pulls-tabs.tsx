@@ -35,9 +35,9 @@ function JourneyHeader({ status }: { status: PullStatus }) {
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "posted", label: "Unclaimed" },
-  { id: "pack", label: "To pack" },
-  { id: "send", label: "To ship" },
-  { id: "log", label: "Transfers log" },
+  { id: "pack", label: "Pack" },
+  { id: "send", label: "Ship" },
+  { id: "log", label: "POS Log" },
 ];
 
 function parseView(v: string | null | undefined): View {
@@ -170,14 +170,14 @@ export function MyPullsTabs({
             <button
               key={v.id}
               onClick={() => setView(v.id)}
-              className={`shrink-0 h-11 px-4 rounded-full text-base font-semibold border ${
+              className={`shrink-0 h-10 px-3.5 rounded-full text-sm font-semibold border ${
                 active ? activeCls : "bg-white text-zinc-700 border-zinc-300"
               }`}
             >
               {v.label}
               {badge !== null && badge > 0 && (
                 <span
-                  className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold leading-none ${
+                  className={`ml-1.5 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-bold leading-none ${
                     v.id === "pack" || v.id === "send"
                       ? active
                         ? "bg-white/30 text-white"

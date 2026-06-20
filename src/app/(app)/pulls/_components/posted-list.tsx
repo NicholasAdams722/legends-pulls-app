@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import type { MyPull } from "./my-pulls-tabs";
 import { EmptyState, PlusIcon } from "../../_components/empty-state";
+import { PullDetailSheet } from "../../_components/pull-detail-sheet";
 
 export function PostedList({
   pulls,
@@ -16,6 +17,7 @@ export function PostedList({
 }) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [detailFor, setDetailFor] = useState<MyPull | null>(null);
 
   // Posted = the one active stage of the lifecycle: "Available" (waiting
   // for a claim). Anything that moved on lives in To pack / To ship / Log.
@@ -77,7 +79,12 @@ export function PostedList({
                 key={p.id}
                 className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
               >
-                <div className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch">
+                <button
+                  type="button"
+                  onClick={() => setDetailFor(p)}
+                  aria-label={`View details for ${p.style_name}`}
+                  className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch active:opacity-80"
+                >
                   {p.photo_urls[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -87,32 +94,43 @@ export function PostedList({
                       loading="lazy"
                     />
                   )}
-                </div>
+                </button>
                 <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
-                  <div className="text-base font-semibold truncate text-zinc-900">
-                    {p.style_name}
-                  </div>
-                  <div className="text-sm text-zinc-700">
-                    {total} {total === 1 ? "pc" : "pcs"}
-                    {breakdown && ` · ${breakdown}`}
-                  </div>
-                  <div className="text-sm text-zinc-600 font-mono leading-snug line-clamp-3">
-                    {p.pull_lines
-                      .map(
-                        (l) =>
-                          `${l.sku}${
-                            l.color || l.size
-                              ? ` (${[l.color, l.size]
-                                  .filter(Boolean)
-                                  .join("/")})`
-                              : ""
-                          }×${l.quantity}`,
-                      )
-                      .join(", ")}
-                  </div>
-                  <div className="text-xs text-zinc-500">
-                    Posted {new Date(p.created_at).toLocaleDateString()}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailFor(p)}
+                    className="text-left active:opacity-70"
+                  >
+                    <div className="text-base font-semibold truncate text-zinc-900">
+                      {p.style_name}
+                    </div>
+                    <div className="text-sm text-zinc-700 mt-1">
+                      {total} {total === 1 ? "pc" : "pcs"}
+                      {breakdown && ` · ${breakdown}`}
+                    </div>
+                    <div className="text-sm text-zinc-500 mt-1 flex items-center gap-1">
+                      <span>
+                        {p.pull_lines.length}{" "}
+                        {p.pull_lines.length === 1 ? "SKU" : "SKUs"} · tap for
+                        details
+                      </span>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      Posted {new Date(p.created_at).toLocaleDateString()}
+                    </div>
+                  </button>
                   <div className="flex-1 min-h-2" />
                   <div className="flex gap-2">
                     <Link
@@ -134,6 +152,12 @@ export function PostedList({
             );
           })}
         </ul>
+      )}
+      {detailFor && (
+        <PullDetailSheet
+          pull={detailFor}
+          onClose={() => setDetailFor(null)}
+        />
       )}
     </div>
   );

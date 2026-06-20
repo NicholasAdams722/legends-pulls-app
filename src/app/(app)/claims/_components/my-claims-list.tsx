@@ -8,6 +8,7 @@ import type { PullLine, PullStatus, Store } from "@/lib/types";
 import { useToast } from "../../_components/toast";
 import { EmptyState, InboxIcon } from "../../_components/empty-state";
 import { JourneyStrip } from "../../_components/journey-strip";
+import { PullDetailSheet } from "../../_components/pull-detail-sheet";
 
 export type ClaimedPull = {
   id: string;
@@ -25,6 +26,7 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
   const router = useRouter();
   const toast = useToast();
   const [receiving, setReceiving] = useState<string | null>(null);
+  const [detailFor, setDetailFor] = useState<ClaimedPull | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -68,6 +70,7 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
   }
 
   return (
+    <>
     <ul className="px-3 py-3 space-y-3">
       {initial.map((p) => {
         const total = totalQuantity(p.pull_lines);
@@ -77,7 +80,12 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
             key={p.id}
             className="flex rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
           >
-            <div className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch">
+            <button
+              type="button"
+              onClick={() => setDetailFor(p)}
+              aria-label={`View details for ${p.style_name}`}
+              className="w-32 sm:w-36 shrink-0 bg-zinc-100 relative self-stretch active:opacity-80"
+            >
               {p.photo_urls[0] && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -87,22 +95,42 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
                   loading="lazy"
                 />
               )}
-            </div>
+            </button>
             <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
               <JourneyStrip status={p.status} />
-              <div className="flex items-center justify-between gap-2 mt-1">
-                <div className="text-base font-semibold truncate text-zinc-900">
-                  {p.style_name}
+              <button
+                type="button"
+                onClick={() => setDetailFor(p)}
+                className="text-left mt-1 active:opacity-70"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-base font-semibold truncate text-zinc-900">
+                    {p.style_name}
+                  </div>
+                  <ClaimStatusBadge status={p.status} />
                 </div>
-                <ClaimStatusBadge status={p.status} />
-              </div>
-              <div className="text-sm text-zinc-700">
-                From Store {p.from_store.code} · {p.from_store.name}
-              </div>
-              <div className="text-sm text-zinc-500">
-                {total} {total === 1 ? "pc" : "pcs"}
-                {breakdown && ` · ${breakdown}`}
-              </div>
+                <div className="text-sm text-zinc-700 mt-1">
+                  From Store {p.from_store.code} · {p.from_store.name}
+                </div>
+                <div className="text-sm text-zinc-500 mt-1 flex items-center gap-1">
+                  <span>
+                    {total} {total === 1 ? "pc" : "pcs"}
+                    {breakdown && ` · ${breakdown}`} · tap for details
+                  </span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </div>
+              </button>
               <div className="flex-1 min-h-2" />
               <button
                 onClick={() => markReceived(p.id)}
@@ -116,6 +144,24 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
         );
       })}
     </ul>
+    {detailFor && (
+      <PullDetailSheet
+        pull={detailFor}
+        onClose={() => setDetailFor(null)}
+        action={{
+          label: "Mark Received",
+          busyLabel: "Receiving…",
+          busy: receiving === detailFor.id,
+          onClick: () => {
+            const id = detailFor.id;
+            setDetailFor(null);
+            markReceived(id);
+          },
+          className: "bg-emerald-500 text-white",
+        }}
+      />
+    )}
+    </>
   );
 }
 
