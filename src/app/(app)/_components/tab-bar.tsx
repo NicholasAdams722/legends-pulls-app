@@ -206,7 +206,7 @@ function TabItem({
             </span>
           )}
         </div>
-        <span className="text-[10px] font-medium leading-none">
+        <span className="text-[11px] font-semibold leading-none">
           {tab.label}
         </span>
       </Link>

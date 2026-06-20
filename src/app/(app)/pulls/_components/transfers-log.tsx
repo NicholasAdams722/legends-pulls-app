@@ -150,10 +150,10 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
             <button
               key={r.id}
               onClick={() => setRange(r.id)}
-              className={`h-8 px-3 rounded-full text-xs font-medium border ${
+              className={`h-11 px-4 rounded-full text-sm font-semibold border ${
                 active
                   ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                  : "bg-zinc-900 text-zinc-300 border-zinc-800"
+                  : "bg-zinc-900 text-zinc-200 border-zinc-700"
               }`}
             >
               {r.label}
@@ -163,14 +163,14 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
         <button
           onClick={exportCsv}
           disabled={rows.length === 0}
-          className="ml-auto h-8 px-3 rounded-full text-xs font-medium bg-zinc-50 text-zinc-950 disabled:opacity-40"
+          className="ml-auto h-11 px-4 rounded-full text-sm font-semibold bg-zinc-50 text-zinc-950 disabled:opacity-40"
         >
           Export CSV ({rows.length})
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <div className="p-10 text-center text-sm text-zinc-500">
+        <div className="p-10 text-center text-base text-zinc-400">
           No transfers sent in this range.
         </div>
       ) : (
@@ -178,22 +178,22 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
           {rows.map((r) => (
             <li key={r.lineId} className="px-4 py-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-mono text-zinc-300">
+                <div className="text-base font-mono font-semibold text-zinc-100">
                   {r.sku}
                   {(r.color || r.size) && (
-                    <span className="text-zinc-500">
+                    <span className="text-zinc-400 font-normal">
                       {" "}
                       ({[r.color, r.size].filter(Boolean).join("/")})
                     </span>
                   )}
                 </div>
-                <div className="text-sm font-semibold">×{r.qty}</div>
+                <div className="text-lg font-bold">×{r.qty}</div>
               </div>
-              <div className="text-xs text-zinc-500 mt-0.5 flex items-center justify-between gap-2">
-                <span>
+              <div className="text-sm text-zinc-300 mt-1 flex items-center justify-between gap-2">
+                <span className="font-semibold">
                   Store {r.fromCode} → {r.toLabel}
                 </span>
-                <span>
+                <span className="text-zinc-400">
                   {r.sentAt
                     ? new Date(r.sentAt).toLocaleString([], {
                         month: "numeric",
@@ -204,7 +204,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
                     : "—"}
                 </span>
               </div>
-              <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
+              <div className="text-sm text-zinc-400 mt-1 truncate">
                 {r.style}
               </div>
             </li>

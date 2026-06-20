@@ -51,7 +51,7 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
 
   if (initial.length === 0) {
     return (
-      <div className="p-10 text-center text-sm text-zinc-500">
+      <div className="p-10 text-center text-base text-zinc-400">
         No active claims awaiting handoff.
       </div>
     );
@@ -63,37 +63,42 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
         const total = totalQuantity(p.pull_lines);
         const breakdown = variantBreakdown(p.pull_lines);
         return (
-          <li key={p.id} className="p-4 flex gap-3">
-            <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
-              {p.photo_urls[0] && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.photo_urls[0]}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              )}
+          <li key={p.id} className="p-4">
+            <div className="flex gap-3">
+              <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
+                {p.photo_urls[0] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.photo_urls[0]}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-base font-semibold truncate">
+                    {p.style_name}
+                  </div>
+                  <ClaimStatusBadge status={p.status} />
+                </div>
+                <div className="text-sm text-zinc-300 mt-1">
+                  From Store {p.from_store.code} · {p.from_store.name}
+                </div>
+                <div className="text-sm text-zinc-400 mt-1">
+                  {total} {total === 1 ? "pc" : "pcs"}
+                  {breakdown && ` · ${breakdown}`}
+                </div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium truncate">{p.style_name}</div>
-                <ClaimStatusBadge status={p.status} />
-              </div>
-              <div className="text-xs text-zinc-500 mt-0.5">
-                From Store {p.from_store.code} · {p.from_store.name}
-              </div>
-              <div className="text-xs text-zinc-500 mt-0.5">
-                {total} {total === 1 ? "pc" : "pcs"}
-                {breakdown && ` · ${breakdown}`}
-              </div>
-              <button
-                onClick={() => markReceived(p.id)}
-                disabled={receiving === p.id}
-                className="mt-2 text-xs px-3 h-8 rounded-full bg-emerald-500 text-zinc-950 font-medium disabled:opacity-50"
-              >
-                {receiving === p.id ? "Receiving…" : "Mark received"}
-              </button>
-            </div>
+            <button
+              onClick={() => markReceived(p.id)}
+              disabled={receiving === p.id}
+              className="mt-3 w-full h-14 rounded-xl bg-emerald-500 text-zinc-950 text-base font-bold disabled:opacity-50 active:scale-[0.99]"
+            >
+              {receiving === p.id ? "Receiving…" : "Mark Received"}
+            </button>
           </li>
         );
       })}
@@ -102,30 +107,28 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
 }
 
 function ClaimStatusBadge({ status }: { status: PullStatus }) {
+  const baseCls =
+    "shrink-0 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full";
   if (status === "claimed") {
     return (
-      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-950 text-amber-300">
+      <span className={`${baseCls} bg-amber-900 text-amber-200`}>
         Awaiting pack
       </span>
     );
   }
   if (status === "packed") {
     return (
-      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-sky-950 text-sky-300">
-        Packed
-      </span>
+      <span className={`${baseCls} bg-sky-900 text-sky-200`}>Packed</span>
     );
   }
   if (status === "sent") {
     return (
-      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-950 text-blue-300">
-        Incoming
-      </span>
+      <span className={`${baseCls} bg-blue-900 text-blue-200`}>Incoming</span>
     );
   }
   if (status === "to_warehouse") {
     return (
-      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300">
+      <span className={`${baseCls} bg-indigo-900 text-indigo-200`}>
         Routed
       </span>
     );

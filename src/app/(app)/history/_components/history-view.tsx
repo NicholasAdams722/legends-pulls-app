@@ -117,13 +117,13 @@ export function HistoryView({
           placeholder="Search style or SKU"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-10 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-sm focus:outline-none focus:border-zinc-600"
+          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-700 px-3 text-base focus:outline-none focus:border-zinc-500"
         />
         <div className="flex gap-2 overflow-x-auto">
           <select
             value={storeFilter}
             onChange={(e) => setStoreFilter(e.target.value)}
-            className="h-9 px-3 rounded-full text-sm bg-zinc-900 border border-zinc-800"
+            className="h-11 px-3 rounded-full text-sm font-semibold bg-zinc-900 border border-zinc-700 text-zinc-200"
           >
             <option value="all">All stores</option>
             {stores.map((s) => (
@@ -134,7 +134,7 @@ export function HistoryView({
           </select>
           <button
             onClick={exportCsv}
-            className="shrink-0 h-9 px-3 rounded-full text-sm font-medium bg-zinc-50 text-zinc-950"
+            className="shrink-0 h-11 px-4 rounded-full text-sm font-semibold bg-zinc-50 text-zinc-950"
           >
             Export CSV ({filtered.length})
           </button>
@@ -142,7 +142,7 @@ export function HistoryView({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-10 text-center text-sm text-zinc-500">
+        <div className="p-10 text-center text-base text-zinc-400">
           No matching transfers.
         </div>
       ) : (
@@ -154,19 +154,21 @@ export function HistoryView({
             return (
               <li key={p.id} className="p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium truncate">{p.style_name}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+                  <div className="text-base font-semibold truncate">
+                    {p.style_name}
+                  </div>
+                  <div className="text-xs font-bold uppercase tracking-wide text-zinc-300 shrink-0">
                     Store {p.from_store.code} → {toLabel}
                   </div>
                 </div>
-                <div className="text-xs text-zinc-500 mt-0.5">
+                <div className="text-sm text-zinc-300 mt-1">
                   {p.received_at
                     ? `Received ${new Date(p.received_at).toLocaleDateString()}`
                     : "Routed to warehouse"}
                   {p.posted_by_user && ` · posted by ${p.posted_by_user.name}`}
                   {p.claimed_by_user && ` · received by ${p.claimed_by_user.name}`}
                 </div>
-                <div className="text-xs text-zinc-400 mt-1 font-mono">
+                <div className="text-sm text-zinc-300 mt-1 font-mono">
                   {p.pull_lines
                     .map(
                       (l) =>

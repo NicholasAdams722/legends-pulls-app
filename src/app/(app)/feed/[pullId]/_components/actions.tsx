@@ -31,23 +31,23 @@ export function PullActions({ pullId }: { pullId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <button
           onClick={() => call("pass")}
           disabled={busy !== null}
-          className="flex-1 h-12 rounded-lg bg-zinc-900 border border-zinc-800 font-medium disabled:opacity-50"
+          className="flex-1 h-16 rounded-xl bg-zinc-900 border border-zinc-700 text-lg font-semibold text-zinc-200 disabled:opacity-50 active:scale-[0.98]"
         >
           {busy === "pass" ? "Passing…" : "Pass"}
         </button>
         <button
           onClick={() => call("claim")}
           disabled={busy !== null}
-          className="flex-1 h-12 rounded-lg bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
+          className="flex-1 h-16 rounded-xl bg-emerald-500 text-zinc-950 text-lg font-bold disabled:opacity-50 active:scale-[0.98]"
         >
           {busy === "claim" ? "Claiming…" : "Claim"}
         </button>
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-base text-red-400">{error}</p>}
     </div>
   );
 }

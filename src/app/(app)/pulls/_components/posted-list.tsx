@@ -50,12 +50,12 @@ export function PostedList({
           placeholder="Search style or SKU"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-10 rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-sm focus:outline-none focus:border-zinc-600"
+          className="w-full h-12 rounded-lg bg-zinc-900 border border-zinc-700 px-3 text-base focus:outline-none focus:border-zinc-500"
         />
       </div>
 
       {visible.length === 0 ? (
-        <div className="p-10 text-center text-sm text-zinc-500">
+        <div className="p-10 text-center text-base text-zinc-400">
           {search
             ? "No available pulls match that search."
             : "No pulls waiting for a claim. Tap + to post one."}
@@ -66,42 +66,46 @@ export function PostedList({
             const total = totalQuantity(p.pull_lines);
             const breakdown = variantBreakdown(p.pull_lines);
             return (
-              <li key={p.id} className="p-4 flex gap-3">
-                <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
-                  {p.photo_urls[0] && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.photo_urls[0]}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
+              <li key={p.id} className="p-4">
+                <div className="flex gap-3">
+                  <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-zinc-900">
+                    {p.photo_urls[0] && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.photo_urls[0]}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base font-semibold truncate">
+                      {p.style_name}
+                    </div>
+                    <div className="text-sm text-zinc-300 mt-1">
+                      {total} {total === 1 ? "pc" : "pcs"}
+                      {breakdown && ` · ${breakdown}`}
+                    </div>
+                    <div className="text-sm text-zinc-400 mt-1">
+                      Posted {new Date(p.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{p.style_name}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">
-                    {total} {total === 1 ? "pc" : "pcs"}
-                    {breakdown && ` · ${breakdown}`}
-                  </div>
-                  <div className="text-[11px] text-zinc-500 mt-0.5">
-                    Posted {new Date(p.created_at).toLocaleDateString()}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <Link
-                      href={`/pulls/${p.id}/edit`}
-                      className="text-xs px-3 h-8 inline-flex items-center rounded-full bg-zinc-900 border border-zinc-800"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => deletePull(p.id)}
-                      disabled={deleting === p.id}
-                      className="text-xs px-3 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-red-400 disabled:opacity-50"
-                    >
-                      {deleting === p.id ? "Deleting…" : "Delete"}
-                    </button>
-                  </div>
+                <div className="flex gap-2 mt-3">
+                  <Link
+                    href={`/pulls/${p.id}/edit`}
+                    className="flex-1 h-12 inline-flex items-center justify-center rounded-lg bg-zinc-900 border border-zinc-700 text-base font-semibold"
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    onClick={() => deletePull(p.id)}
+                    disabled={deleting === p.id}
+                    className="flex-1 h-12 rounded-lg bg-zinc-900 border border-zinc-700 text-base font-semibold text-red-400 disabled:opacity-50"
+                  >
+                    {deleting === p.id ? "Deleting…" : "Delete"}
+                  </button>
                 </div>
               </li>
             );

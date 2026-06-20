@@ -138,7 +138,7 @@ export function MyPullsTabs({
 
   return (
     <div>
-      <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
+      <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
         {VIEWS.map((v) => {
           const active = v.id === view;
           const badge =
@@ -155,21 +155,21 @@ export function MyPullsTabs({
             <button
               key={v.id}
               onClick={() => setView(v.id)}
-              className={`shrink-0 h-9 px-3 rounded-full text-sm font-medium border ${
+              className={`shrink-0 h-11 px-4 rounded-full text-base font-semibold border ${
                 active
                   ? "bg-zinc-50 text-zinc-950 border-zinc-50"
-                  : "bg-zinc-900 text-zinc-300 border-zinc-800"
+                  : "bg-zinc-900 text-zinc-200 border-zinc-700"
               }`}
             >
               {v.label}
               {badge !== null && badge > 0 && (
                 <span
-                  className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                  className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold leading-none ${
                     v.id === "pack" || v.id === "send"
                       ? "bg-red-500 text-white"
                       : active
                         ? "bg-zinc-200 text-zinc-600"
-                        : "bg-zinc-800 text-zinc-400"
+                        : "bg-zinc-800 text-zinc-300"
                   }`}
                 >
                   {badge > 99 ? "99+" : badge}

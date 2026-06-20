@@ -33,25 +33,25 @@ export function PullCard({ pull }: { pull: FeedPull }) {
           />
         ) : null}
         {pull.good_type === "hard" && (
-          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/70 text-[10px] uppercase tracking-wide text-zinc-100">
+          <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/70 text-xs font-bold uppercase tracking-wide text-zinc-100">
             Item
           </div>
         )}
       </div>
-      <div className="p-2.5">
+      <div className="p-3">
         <div
-          className={`inline-flex items-center px-2 h-6 rounded-md text-[11px] font-bold tracking-wide ${c.badge}`}
+          className={`inline-flex items-center px-2.5 h-7 rounded-md text-xs font-bold tracking-wide ${c.badge}`}
         >
           STORE {pull.from_store.code}
         </div>
-        <div className="text-sm font-semibold mt-1.5 leading-tight line-clamp-2">
+        <div className="text-base font-semibold mt-2 leading-tight line-clamp-2">
           {pull.style_name}
         </div>
-        <div className="text-xs text-zinc-400 mt-1">
+        <div className="text-sm text-zinc-300 mt-1.5">
           {total} {total === 1 ? "pc" : "pcs"}
         </div>
         {breakdown && (
-          <div className="text-[11px] text-zinc-500 mt-0.5 leading-snug line-clamp-2">
+          <div className="text-xs text-zinc-400 mt-1 leading-snug line-clamp-2">
             {breakdown}
           </div>
         )}

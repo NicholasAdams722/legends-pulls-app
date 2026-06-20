@@ -51,9 +51,9 @@ export default async function PullDetailPage({
       <div className="px-2 pt-2 pb-1">
         <Link
           href="/feed"
-          className="inline-flex items-center gap-1 h-10 px-3 text-sm text-zinc-300 -ml-1"
+          className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-200 -ml-1"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
           Back to feed
@@ -75,38 +75,40 @@ export default async function PullDetailPage({
 
       <div className="p-4 space-y-4">
         <div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wide">
+          <div className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">
             Store {pull.from_store.code} · {pull.from_store.name}
             {pull.posted_by_user ? ` · ${pull.posted_by_user.name}` : ""}
           </div>
-          <h1 className="text-xl font-semibold mt-1">{pull.style_name}</h1>
-          <div className="text-sm text-zinc-400 mt-1">
+          <h1 className="text-2xl font-bold mt-1">{pull.style_name}</h1>
+          <div className="text-base text-zinc-300 mt-1">
             {total} {total === 1 ? "piece" : "pieces"} ·{" "}
             {pull.good_type === "soft" ? "Clothing" : "Items"}
           </div>
           {pull.description && (
-            <p className="text-sm text-zinc-300 mt-2">{pull.description}</p>
+            <p className="text-base text-zinc-200 mt-2">{pull.description}</p>
           )}
         </div>
 
         {/* Line items table */}
-        <div className="rounded-lg border border-zinc-800 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-900 text-zinc-400 text-xs">
+        <div className="rounded-lg border border-zinc-700 overflow-hidden">
+          <table className="w-full text-base">
+            <thead className="bg-zinc-900 text-zinc-300 text-sm">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">SKU</th>
-                <th className="px-3 py-2 text-left font-medium">Color</th>
-                <th className="px-3 py-2 text-left font-medium">Size</th>
-                <th className="px-3 py-2 text-right font-medium">Qty</th>
+                <th className="px-3 py-3 text-left font-semibold">SKU</th>
+                <th className="px-3 py-3 text-left font-semibold">Color</th>
+                <th className="px-3 py-3 text-left font-semibold">Size</th>
+                <th className="px-3 py-3 text-right font-semibold">Qty</th>
               </tr>
             </thead>
             <tbody>
               {pull.pull_lines.map((l) => (
-                <tr key={l.id} className="border-t border-zinc-900">
-                  <td className="px-3 py-2 font-mono">{l.sku}</td>
-                  <td className="px-3 py-2">{l.color ?? "—"}</td>
-                  <td className="px-3 py-2">{l.size ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">{l.quantity}</td>
+                <tr key={l.id} className="border-t border-zinc-800">
+                  <td className="px-3 py-3 font-mono font-semibold">{l.sku}</td>
+                  <td className="px-3 py-3">{l.color ?? "—"}</td>
+                  <td className="px-3 py-3">{l.size ?? "—"}</td>
+                  <td className="px-3 py-3 text-right font-semibold">
+                    {l.quantity}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -114,12 +116,12 @@ export default async function PullDetailPage({
         </div>
 
         {pull.status !== "available" ? (
-          <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-zinc-400">
+          <div className="rounded-lg bg-zinc-900 border border-zinc-700 p-4 text-base text-zinc-300">
             This pull is no longer available (status:{" "}
-            <span className="text-zinc-200">{pull.status}</span>).
+            <span className="text-zinc-100 font-semibold">{pull.status}</span>).
           </div>
         ) : isOwn ? (
-          <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-zinc-400">
+          <div className="rounded-lg bg-zinc-900 border border-zinc-700 p-4 text-base text-zinc-300">
             You posted this pull. Manage it from My Pulls.
           </div>
         ) : (

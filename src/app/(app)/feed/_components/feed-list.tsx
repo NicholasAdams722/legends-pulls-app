@@ -89,7 +89,7 @@ export function FeedList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-10 text-center text-sm text-zinc-500">
+        <div className="p-10 text-center text-base text-zinc-400">
           Nothing available right now.
         </div>
       ) : (
@@ -114,12 +114,12 @@ function FilterChip({
   activeClass?: string;
   children: React.ReactNode;
 }) {
-  const inactive = "bg-zinc-900 text-zinc-300 border-zinc-800";
+  const inactive = "bg-zinc-900 text-zinc-200 border-zinc-700";
   const defaultActive = "bg-zinc-50 text-zinc-950 border-zinc-50";
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 h-9 px-3 rounded-full text-xs font-semibold border ${
+      className={`shrink-0 h-11 px-4 rounded-full text-sm font-semibold border ${
         active ? (activeClass ?? defaultActive) : inactive
       }`}
     >
