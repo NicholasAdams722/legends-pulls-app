@@ -218,11 +218,8 @@ export function TabBar({
   const claimsTab: TabDef = isWarehouse
     ? { ...CLAIMS, label: "Routed" }
     : CLAIMS;
-  // POS Log (incoming) is admin/warehouse only. Store managers handle
-  // their POS entry from /pulls?view=log (outgoing).
-  const showPosLog = role !== "manager";
   const leftTabs = isWarehouse ? [FEED] : [FEED, PULLS];
-  const rightTabs = showPosLog ? [claimsTab, POS_LOG] : [claimsTab];
+  const rightTabs = [claimsTab, POS_LOG];
 
   return (
     <nav className="lg:hidden pb-safe fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-zinc-200">

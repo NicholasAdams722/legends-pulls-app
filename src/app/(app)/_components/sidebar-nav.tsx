@@ -214,16 +214,9 @@ export function SidebarNav({
 
   const isWarehouse = role === "warehouse";
   const claims: Item = isWarehouse ? { ...CLAIMS, label: "Routed" } : CLAIMS;
-  // POS Log (incoming) is admin/warehouse only. Store managers handle
-  // their POS entry from /pulls?view=log (outgoing).
-  const showPosLog = role !== "manager";
   const items: Item[] = isWarehouse
-    ? showPosLog
-      ? [FEED, claims, POS_LOG]
-      : [FEED, claims]
-    : showPosLog
-      ? [FEED, PULLS, claims, POS_LOG]
-      : [FEED, PULLS, claims];
+    ? [FEED, claims, POS_LOG]
+    : [FEED, PULLS, claims, POS_LOG];
 
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:bg-white lg:border-r lg:border-zinc-200 lg:flex lg:flex-col">
