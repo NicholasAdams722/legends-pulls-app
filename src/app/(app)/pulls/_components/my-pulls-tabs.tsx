@@ -5,7 +5,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PullLine, PullStatus, Store } from "@/lib/types";
 import { PostedList } from "./posted-list";
 import { WorkflowList } from "./workflow-list";
-import { TransfersLog } from "./transfers-log";
 import { JourneyStrip } from "../../_components/journey-strip";
 
 export type MyPull = {
@@ -23,7 +22,7 @@ export type MyPull = {
   pull_lines: PullLine[];
 };
 
-type View = "posted" | "pack" | "send" | "log";
+type View = "posted" | "pack" | "send";
 
 function JourneyHeader({ status }: { status: PullStatus }) {
   return (
@@ -37,11 +36,10 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "posted", label: "Unclaimed" },
   { id: "pack", label: "Pack" },
   { id: "send", label: "Ship" },
-  { id: "log", label: "POS Log" },
 ];
 
 function parseView(v: string | null | undefined): View {
-  return v === "pack" || v === "send" || v === "log" ? v : "posted";
+  return v === "pack" || v === "send" ? v : "posted";
 }
 
 export function MyPullsTabs({
@@ -135,14 +133,12 @@ export function MyPullsTabs({
     let posted = 0;
     let pack = 0;
     let send = 0;
-    let log = 0;
     for (const p of pulls) {
       if (p.status === "available") posted += 1;
       else if (p.status === "claimed" || p.status === "to_warehouse") pack += 1;
       else if (p.status === "packed") send += 1;
-      else if (p.status === "sent" || p.status === "received") log += 1;
     }
-    return { posted, pack, send, log };
+    return { posted, pack, send };
   }, [pulls]);
 
   return (
@@ -155,11 +151,7 @@ export function MyPullsTabs({
               ? counts.posted
               : v.id === "pack"
                 ? counts.pack
-                : v.id === "send"
-                  ? counts.send
-                  : v.id === "log"
-                    ? counts.log
-                    : null;
+                : counts.send;
           const activeCls =
             v.id === "pack"
               ? "bg-orange-500 text-white border-orange-500"
@@ -175,7 +167,7 @@ export function MyPullsTabs({
               }`}
             >
               {v.label}
-              {badge !== null && badge > 0 && (
+              {badge > 0 && (
                 <span
                   className={`ml-1.5 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-bold leading-none ${
                     v.id === "pack" || v.id === "send"
@@ -213,7 +205,6 @@ export function MyPullsTabs({
           <WorkflowList mode="send" pulls={pulls} onPatch={patchPull} />
         </>
       )}
-      {view === "log" && <TransfersLog pulls={pulls} />}
     </div>
   );
 }

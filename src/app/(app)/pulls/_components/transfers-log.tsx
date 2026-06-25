@@ -57,7 +57,7 @@ function saveLogged(set: Set<string>) {
 }
 
 export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
-  const [range, setRange] = useState<Range>("today");
+  const [range, setRange] = useState<Range>("all");
   const [logged, setLogged] = useState<Set<string>>(() => new Set());
   const [hydrated, setHydrated] = useState(false);
   const [hideLogged, setHideLogged] = useState(false);
