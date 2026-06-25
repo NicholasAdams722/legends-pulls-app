@@ -33,6 +33,17 @@ function newKey() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+function isNetworkError(err: { message?: string }) {
+  const msg = (err.message ?? "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("load failed") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request failed") ||
+    (typeof navigator !== "undefined" && navigator.onLine === false)
+  );
+}
+
 function emptyLine(): Line {
   return { key: newKey(), sku: "", color: "", size: "", quantity: 1 };
 }
@@ -202,13 +213,18 @@ export function PullForm({
           quantity: l.quantity,
         })),
       };
-      const { error: rpcErr } =
+      const callRpc = () =>
         mode === "create"
-          ? await supabase.rpc("create_pull", payload)
-          : await supabase.rpc("update_pull", {
+          ? supabase.rpc("create_pull", payload)
+          : supabase.rpc("update_pull", {
               p_pull_id: pull!.id,
               ...payload,
             });
+      let rpcErr = (await callRpc()).error;
+      if (rpcErr && isNetworkError(rpcErr)) {
+        await new Promise((r) => setTimeout(r, 600));
+        rpcErr = (await callRpc()).error;
+      }
       if (rpcErr) {
         setError(rpcErr.message);
         return;
