@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -35,16 +34,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     idRef.current += 1;
     const id = idRef.current;
     setMessages((prev) => [...prev, { id, text, tone }]);
+    setTimeout(() => {
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    }, 1200);
   }, []);
-
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const oldest = messages[0];
-    const t = setTimeout(() => {
-      setMessages((prev) => prev.filter((m) => m.id !== oldest.id));
-    }, 4000);
-    return () => clearTimeout(t);
-  }, [messages]);
 
   return (
     <ToastContext.Provider value={{ show }}>
