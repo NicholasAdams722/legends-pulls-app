@@ -70,13 +70,11 @@ const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
 
 export function TabBar({
   role,
-  userId,
   storeId,
   initialPullsBadge,
   initialRoutedBadge,
 }: {
   role: UserRole;
-  userId: string;
   storeId: string;
   initialPullsBadge: number;
   initialRoutedBadge: number;
@@ -103,7 +101,7 @@ export function TabBar({
     }
   }, [initialRoutedBadge]);
 
-  // Realtime: adjust badge by delta on UPDATE/DELETE of this user's pulls.
+  // Realtime: adjust badge by delta on UPDATE/DELETE of this store's pulls.
   // INSERT can't change in-flight count (new pulls are always 'available').
   useEffect(() => {
     if (role === "warehouse") return; // no Pulls tab for warehouse
@@ -116,7 +114,7 @@ export function TabBar({
           event: "UPDATE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const oldStatus = (payload.old as { status?: PullStatus }).status;
@@ -135,7 +133,7 @@ export function TabBar({
           event: "DELETE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const oldStatus = (payload.old as { status?: PullStatus }).status;
@@ -148,7 +146,7 @@ export function TabBar({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [role, userId]);
+  }, [role, storeId]);
 
   // Realtime: warehouse-only — listen for pulls heading to or leaving the
   // warehouse's incoming queue (to_warehouse / packed / sent with

@@ -23,7 +23,7 @@ export default async function AppLayout({
       : supabase
           .from("pulls")
           .select("id", { count: "exact", head: true })
-          .eq("posted_by", user.id)
+          .eq("from_store_id", store.id)
           .in("status", ["claimed", "packed", "to_warehouse"]),
     isWarehouse
       ? supabase
@@ -40,7 +40,6 @@ export default async function AppLayout({
     <ToastProvider>
       <SidebarNav
         role={user.role}
-        userId={user.id}
         storeId={store.id}
         storeCode={store.code}
         storeName={store.name}
@@ -80,7 +79,6 @@ export default async function AppLayout({
         </main>
         <TabBar
           role={user.role}
-          userId={user.id}
           storeId={store.id}
           initialPullsBadge={initialPullsBadge}
           initialRoutedBadge={initialRoutedBadge}

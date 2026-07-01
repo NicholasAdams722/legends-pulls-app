@@ -6,11 +6,10 @@ import type { MyPull } from "../pulls/_components/my-pulls-tabs";
 export const dynamic = "force-dynamic";
 
 export default async function PosLogPage() {
-  const { user } = await requireAppUser();
+  const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
-  // Same data shape and filter as the manager's POS Log inside /pulls:
-  // pulls this user posted that have been shipped or received.
+  // Pulls this store originated that have been shipped or received.
   const { data } = await supabase
     .from("pulls")
     .select(
@@ -19,7 +18,7 @@ export default async function PosLogPage() {
        from_store:stores!pulls_from_store_id_fkey(*),
        pull_lines(*)`,
     )
-    .eq("posted_by", user.id)
+    .eq("from_store_id", store.id)
     .in("status", ["sent", "received"])
     .order("sent_at", { ascending: false, nullsFirst: false })
     .limit(500);

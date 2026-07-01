@@ -45,11 +45,11 @@ function parseView(v: string | null | undefined): View {
 export function MyPullsTabs({
   initial,
   initialView,
-  userId,
+  storeId,
 }: {
   initial: MyPull[];
   initialView: string | undefined;
-  userId: string;
+  storeId: string;
 }) {
   const [view, setViewState] = useState<View>(parseView(initialView));
   const [pulls, setPulls] = useState<MyPull[]>(initial);
@@ -78,8 +78,8 @@ export function MyPullsTabs({
     setPulls((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  // Realtime: scope to this user's pulls only and merge incoming rows
-  // into local state instead of triggering a full server refetch.
+  // Realtime: scope to this store's pulls and merge incoming rows into
+  // local state instead of triggering a full server refetch.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
@@ -90,7 +90,7 @@ export function MyPullsTabs({
           event: "UPDATE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const row = payload.new as Partial<MyPull> & { id: string };
@@ -105,7 +105,7 @@ export function MyPullsTabs({
           event: "DELETE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const oldRow = payload.old as { id: string };
@@ -116,7 +116,7 @@ export function MyPullsTabs({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [storeId]);
 
   function setView(next: View) {
     setViewState(next);

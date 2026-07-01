@@ -70,7 +70,6 @@ const POS_LOG: Item = {
 
 export function SidebarNav({
   role,
-  userId,
   storeId,
   storeCode,
   storeName,
@@ -79,7 +78,6 @@ export function SidebarNav({
   initialRoutedBadge,
 }: {
   role: UserRole;
-  userId: string;
   storeId: string;
   storeCode: number;
   storeName: string;
@@ -119,7 +117,7 @@ export function SidebarNav({
           event: "UPDATE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const oldStatus = (payload.old as { status?: PullStatus }).status;
@@ -138,7 +136,7 @@ export function SidebarNav({
           event: "DELETE",
           schema: "public",
           table: "pulls",
-          filter: `posted_by=eq.${userId}`,
+          filter: `from_store_id=eq.${storeId}`,
         },
         (payload) => {
           const oldStatus = (payload.old as { status?: PullStatus }).status;
@@ -151,7 +149,7 @@ export function SidebarNav({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [role, userId]);
+  }, [role, storeId]);
 
   // Realtime routed badge (warehouse only).
   useEffect(() => {

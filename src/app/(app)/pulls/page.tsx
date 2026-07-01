@@ -9,7 +9,7 @@ export default async function MyPullsPage({
 }: {
   searchParams: Promise<{ view?: string }>;
 }) {
-  const { user } = await requireAppUser();
+  const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
   const { view } = await searchParams;
 
@@ -21,7 +21,7 @@ export default async function MyPullsPage({
        from_store:stores!pulls_from_store_id_fkey(*),
        pull_lines(*)`,
     )
-    .eq("posted_by", user.id)
+    .eq("from_store_id", store.id)
     .order("created_at", { ascending: false });
 
   const pulls = (data ?? []) as unknown as MyPull[];
@@ -31,7 +31,7 @@ export default async function MyPullsPage({
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-xl font-semibold">My pulls</h1>
       </div>
-      <MyPullsTabs initial={pulls} initialView={view} userId={user.id} />
+      <MyPullsTabs initial={pulls} initialView={view} storeId={store.id} />
     </div>
   );
 }

@@ -12,20 +12,20 @@ export default async function EditPullPage({
   params: Promise<{ pullId: string }>;
 }) {
   const { pullId } = await params;
-  const { user } = await requireAppUser();
+  const { user, store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
   const { data } = await supabase
     .from("pulls")
     .select(
-      `id, photo_urls, style_name, good_type, description, status, posted_by,
+      `id, photo_urls, style_name, good_type, description, status, from_store_id,
        pull_lines(*)`,
     )
     .eq("id", pullId)
     .maybeSingle();
 
   if (!data) notFound();
-  if (data.posted_by !== user.id) redirect("/pulls");
+  if (data.from_store_id !== store.id) redirect("/pulls");
   if (data.status !== "available") redirect("/pulls");
 
   const pull: EditablePull = {
