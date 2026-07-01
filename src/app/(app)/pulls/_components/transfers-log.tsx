@@ -13,6 +13,9 @@ const RANGES: { id: Range; label: string }[] = [
 ];
 
 const STORAGE_KEY = "legends.pos-logged-line-ids";
+const DISMISSED_KEY = "legends.pos-dismissed-line-ids";
+const HIDE_KEY = "legends.pos-hide-entered";
+const DISMISS_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -35,10 +38,47 @@ function csvCell(v: string | number | null | undefined): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function loadLogged(): Set<string> {
-  if (typeof window === "undefined") return new Set();
+// Stored format: { [lineId]: checkedAtMs }. Older array-shaped values from
+// prior releases are treated as "checked now" so nothing gets lost.
+function loadLogged(): Map<string, number> {
+  if (typeof window === "undefined") return new Map();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const now = Date.now();
+      return new Map(parsed.map((id: string) => [id, now]));
+    }
+    if (parsed && typeof parsed === "object") {
+      return new Map(
+        Object.entries(parsed).filter(
+          ([, v]) => typeof v === "number",
+        ) as [string, number][],
+      );
+    }
+    return new Map();
+  } catch {
+    return new Map();
+  }
+}
+
+function saveLogged(map: Map<string, number>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(map)),
+    );
+  } catch {
+    // quota or privacy mode — fail silently
+  }
+}
+
+function loadDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
     if (!raw) return new Set();
     const arr = JSON.parse(raw);
     return new Set(Array.isArray(arr) ? arr : []);
@@ -47,10 +87,10 @@ function loadLogged(): Set<string> {
   }
 }
 
-function saveLogged(set: Set<string>) {
+function saveDismissed(set: Set<string>) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...set]));
   } catch {
     // quota or privacy mode — fail silently
   }
@@ -58,28 +98,87 @@ function saveLogged(set: Set<string>) {
 
 export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
   const [range, setRange] = useState<Range>("all");
-  const [logged, setLogged] = useState<Set<string>>(() => new Set());
+  // Map of lineId -> checkedAt ms. After DISMISS_AFTER_MS they get moved into
+  // the dismissed set and disappear from the list for good.
+  const [logged, setLogged] = useState<Map<string, number>>(() => new Map());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [hydrated, setHydrated] = useState(false);
-  const [hideLogged, setHideLogged] = useState(false);
+  // Default to hiding entered rows so checking = the item leaves the list.
+  const [hideLogged, setHideLogged] = useState(true);
 
   // Hydrate from localStorage after mount to avoid SSR mismatch.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLogged(loadLogged());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDismissed(loadDismissed());
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(HIDE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (stored !== null) setHideLogged(stored === "1");
+    }
     setHydrated(true);
   }, []);
 
-  // Persist whenever the logged set changes, but only after hydration
-  // so we don't overwrite the stored set with an empty one on mount.
+  // Persist whenever the logged / dismissed sets change, but only after
+  // hydration so we don't overwrite storage with empty defaults on mount.
   useEffect(() => {
     if (hydrated) saveLogged(logged);
   }, [logged, hydrated]);
 
+  useEffect(() => {
+    if (hydrated) saveDismissed(dismissed);
+  }, [dismissed, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    window.localStorage.setItem(HIDE_KEY, hideLogged ? "1" : "0");
+  }, [hideLogged, hydrated]);
+
+  // Sweep expired logged entries into the dismissed set. Runs on mount and
+  // once a minute so a long-lived tab keeps up as time passes.
+  useEffect(() => {
+    if (!hydrated) return;
+    function sweep() {
+      const cutoff = Date.now() - DISMISS_AFTER_MS;
+      const expired: string[] = [];
+      for (const [id, t] of logged) {
+        if (t <= cutoff) expired.push(id);
+      }
+      if (expired.length === 0) return;
+      setLogged((prev) => {
+        const next = new Map(prev);
+        for (const id of expired) next.delete(id);
+        return next;
+      });
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        for (const id of expired) next.add(id);
+        return next;
+      });
+    }
+    sweep();
+    const iv = window.setInterval(sweep, 60_000);
+    return () => window.clearInterval(iv);
+  }, [hydrated, logged]);
+
   const toggleLogged = useCallback((lineId: string) => {
     setLogged((prev) => {
-      const next = new Set(prev);
-      if (next.has(lineId)) next.delete(lineId);
-      else next.add(lineId);
+      const wasChecked = prev.has(lineId);
+      if (wasChecked) {
+        if (
+          !window.confirm(
+            "Uncheck this item? Only do this if it was checked by mistake.",
+          )
+        ) {
+          return prev;
+        }
+        const next = new Map(prev);
+        next.delete(lineId);
+        return next;
+      }
+      const next = new Map(prev);
+      next.set(lineId, Date.now());
       return next;
     });
   }, []);
@@ -100,6 +199,8 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       if (!ref) return false;
       return new Date(ref) >= since;
     });
+
+    const isDismissed = (lineId: string) => dismissed.has(lineId);
 
     // Flatten to one row per line for POS-entry friendliness.
     type Row = {
@@ -123,6 +224,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
         ? `Store ${p.claimed_by_store.code}`
         : "Warehouse";
       for (const l of p.pull_lines) {
+        if (isDismissed(l.id)) continue;
         out.push({
           pullId: p.id,
           lineId: l.id,
@@ -147,7 +249,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       return a.pullId.localeCompare(b.pullId);
     });
     return out;
-  }, [pulls, range]);
+  }, [pulls, range, dismissed]);
 
   const visibleRows = useMemo(
     () => (hideLogged ? rows.filter((r) => !logged.has(r.lineId)) : rows),
@@ -158,6 +260,23 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
     () => rows.reduce((n, r) => n + (logged.has(r.lineId) ? 1 : 0), 0),
     [rows, logged],
   );
+
+  const uncheckedVisibleCount = useMemo(
+    () => visibleRows.reduce((n, r) => n + (logged.has(r.lineId) ? 0 : 1), 0),
+    [visibleRows, logged],
+  );
+
+  function checkAllVisible() {
+    if (uncheckedVisibleCount === 0) return;
+    setLogged((prev) => {
+      const next = new Map(prev);
+      const now = Date.now();
+      for (const r of visibleRows) {
+        if (!next.has(r.lineId)) next.set(r.lineId, now);
+      }
+      return next;
+    });
+  }
 
   function exportCsv() {
     const header = [
@@ -203,21 +322,17 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
   }
 
   function clearLogged() {
-    if (loggedCount === 0) return;
+    const dismissedCount = dismissed.size;
+    if (loggedCount === 0 && dismissedCount === 0) return;
     if (
       !confirm(
-        `Uncheck all ${loggedCount} entered ${
-          loggedCount === 1 ? "item" : "items"
-        }?`,
+        `Reset entered items? This restores ${loggedCount} checked and ${dismissedCount} auto-cleared item(s) so they appear again.`,
       )
     ) {
       return;
     }
-    setLogged((prev) => {
-      const next = new Set(prev);
-      for (const r of rows) next.delete(r.lineId);
-      return next;
-    });
+    setLogged(new Map());
+    setDismissed(new Set());
   }
 
   return (
@@ -244,8 +359,10 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
               Log into POS
             </div>
             <p className="text-sm text-amber-900 mt-0.5 leading-snug">
-              This is the most important step. Manually enter every transfer
-              below into your POS system, then tap each row to check it off.
+              This is the most important step. Enter each transfer into POS,
+              then tap the row to check it off — the row disappears from the
+              list. Checked items auto-clear after 24 hours. Unchecking
+              requires confirmation to prevent double entry.
             </p>
           </div>
         </div>
@@ -278,11 +395,19 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       </div>
 
       {rows.length > 0 && (
-        <div className="px-4 py-2.5 flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50 flex-wrap">
           <div className="text-sm font-semibold text-zinc-800">
             {loggedCount} of {rows.length} entered
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={checkAllVisible}
+              disabled={uncheckedVisibleCount === 0}
+              className="h-9 px-3 rounded-full text-xs font-semibold bg-emerald-500 text-white border border-emerald-500 disabled:opacity-40"
+            >
+              Check all
+              {uncheckedVisibleCount > 0 && ` (${uncheckedVisibleCount})`}
+            </button>
             <button
               onClick={() => setHideLogged((v) => !v)}
               className={`h-9 px-3 rounded-full text-xs font-semibold border ${
@@ -291,14 +416,14 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
                   : "bg-white text-zinc-700 border-zinc-300"
               }`}
             >
-              {hideLogged ? "Show all" : "Hide entered"}
+              {hideLogged ? "Show entered" : "Hide entered"}
             </button>
             <button
               onClick={clearLogged}
               disabled={loggedCount === 0}
               className="h-9 px-3 rounded-full text-xs font-semibold bg-white text-red-600 border border-zinc-300 disabled:opacity-40"
             >
-              Clear
+              Reset
             </button>
           </div>
         </div>
