@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { totalQuantity, variantBreakdown } from "@/lib/pull-summary";
 import { storeColor } from "@/lib/store-colors";
+import type { PullStatus } from "@/lib/types";
 import type { MyPull } from "./my-pulls-tabs";
 import { useToast } from "../../_components/toast";
 import {
@@ -54,9 +55,10 @@ const COPY: Record<
       "When another store claims one of your pulls, it'll show up here grouped by destination — ready for you to pack and label for shipping.",
     emptyIcon: <BoxIcon />,
     actionRpc: "pack_pull",
-    actionLabel: "Packed for Shipping",
+    actionLabel: "Pack",
     actionBusy: "Packing…",
-    actionBtnCls: "bg-orange-500 text-white",
+    actionBtnCls:
+      "bg-white text-orange-600 border-2 border-orange-500 active:bg-orange-50",
     groupHeadline: (destLabel) => `Pack for ${destLabel}`,
     groupInstruction: (destLabel) =>
       `Pack these items into totes and label each tote for ${destLabel}.`,
@@ -89,6 +91,12 @@ export function WorkflowList({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<MyPull | null>(null);
+  // Keep just-packed pulls visible on the Pack tab until the page refreshes,
+  // even though their status has already moved to 'packed'. Refresh clears
+  // this set (component remount) so the tab reconciles with server state.
+  const [packedInSession, setPackedInSession] = useState<Set<string>>(
+    () => new Set(),
+  );
   const toast = useToast();
   const copy = COPY[mode];
 
@@ -97,7 +105,9 @@ export function WorkflowList({
     // "To ship" shows only packed pulls (warehouse path skips this step).
     const filtered = pulls.filter((p) =>
       mode === "pack"
-        ? p.status === "claimed" || p.status === "to_warehouse"
+        ? p.status === "claimed" ||
+          p.status === "to_warehouse" ||
+          packedInSession.has(p.id)
         : p.status === "packed",
     );
     const map = new Map<string, Group>();
@@ -115,12 +125,17 @@ export function WorkflowList({
       return a.code - b.code;
     });
     return arr;
-  }, [pulls, mode]);
+  }, [pulls, mode, packedInSession]);
 
   async function callRpc(id: string) {
     setBusy(id);
     const now = new Date().toISOString();
     if (copy.actionRpc === "pack_pull") {
+      setPackedInSession((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
       onPatch(id, { status: "packed", packed_at: now });
     } else {
       onPatch(id, { status: "sent", sent_at: now });
@@ -132,6 +147,32 @@ export function WorkflowList({
       else toast.show(copy.successToast);
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function undoPack(id: string) {
+    const target = pulls.find((p) => p.id === id);
+    if (!target) return;
+    const prevStatus: PullStatus =
+      target.claimed_by_store?.type === "warehouse" ? "to_warehouse" : "claimed";
+    setPackedInSession((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    onPatch(id, { status: prevStatus, packed_at: null });
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.rpc("unpack_pull", { p_pull_id: id });
+    if (error) {
+      alert(error.message);
+      setPackedInSession((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      onPatch(id, { status: "packed" });
+    } else {
+      toast.show("Undone");
     }
   }
 
@@ -186,6 +227,8 @@ export function WorkflowList({
               {g.pulls.map((p) => {
                 const total = totalQuantity(p.pull_lines);
                 const breakdown = variantBreakdown(p.pull_lines);
+                const isPackedInSession =
+                  mode === "pack" && packedInSession.has(p.id);
                 return (
                   <li
                     key={p.id}
@@ -241,13 +284,32 @@ export function WorkflowList({
                         </div>
                       </button>
                       <div className="flex-1 min-h-2" />
-                      <button
-                        onClick={() => callRpc(p.id)}
-                        disabled={busy !== null}
-                        className={`w-full h-12 rounded-lg text-base font-bold disabled:opacity-50 active:scale-[0.99] ${copy.actionBtnCls}`}
-                      >
-                        {busy === p.id ? copy.actionBusy : copy.actionLabel}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => callRpc(p.id)}
+                          disabled={busy !== null || isPackedInSession}
+                          className={`flex-1 h-12 rounded-lg text-base font-bold active:scale-[0.99] ${
+                            isPackedInSession
+                              ? "bg-orange-500 text-white border-2 border-orange-500 cursor-default"
+                              : `${copy.actionBtnCls} disabled:opacity-50`
+                          }`}
+                        >
+                          {busy === p.id
+                            ? copy.actionBusy
+                            : isPackedInSession
+                              ? "Ready to Ship"
+                              : copy.actionLabel}
+                        </button>
+                        {isPackedInSession && (
+                          <button
+                            onClick={() => undoPack(p.id)}
+                            aria-label="Undo pack"
+                            className="shrink-0 h-12 px-3 rounded-lg text-sm font-semibold text-zinc-700 border-2 border-zinc-300 bg-white active:bg-zinc-100"
+                          >
+                            Undo
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );
@@ -260,17 +322,21 @@ export function WorkflowList({
         <PullDetailSheet
           pull={detailFor}
           onClose={() => setDetailFor(null)}
-          action={{
-            label: copy.actionLabel,
-            busyLabel: copy.actionBusy,
-            busy: busy === detailFor.id,
-            onClick: () => {
-              const id = detailFor.id;
-              setDetailFor(null);
-              callRpc(id);
-            },
-            className: copy.actionBtnCls,
-          }}
+          action={
+            mode === "pack" && packedInSession.has(detailFor.id)
+              ? undefined
+              : {
+                  label: copy.actionLabel,
+                  busyLabel: copy.actionBusy,
+                  busy: busy === detailFor.id,
+                  onClick: () => {
+                    const id = detailFor.id;
+                    setDetailFor(null);
+                    callRpc(id);
+                  },
+                  className: copy.actionBtnCls,
+                }
+          }
         />
       )}
     </div>
