@@ -26,6 +26,7 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
   const router = useRouter();
   const toast = useToast();
   const [receiving, setReceiving] = useState<string | null>(null);
+  const [unclaiming, setUnclaiming] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<ClaimedPull | null>(null);
 
   useEffect(() => {
@@ -56,6 +57,29 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
       }
     } finally {
       setReceiving(null);
+    }
+  }
+
+  async function undoClaim(id: string) {
+    if (
+      !confirm(
+        "Undo this claim? It'll go back to the Feed for other stores to claim.",
+      )
+    ) {
+      return;
+    }
+    setUnclaiming(id);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("unclaim_pull", { p_pull_id: id });
+      if (error) {
+        alert(error.message);
+      } else {
+        toast.show("Claim undone — back in the Feed");
+        router.refresh();
+      }
+    } finally {
+      setUnclaiming(null);
     }
   }
 
@@ -139,6 +163,15 @@ export function MyClaimsList({ initial }: { initial: ClaimedPull[] }) {
               >
                 {receiving === p.id ? "Receiving…" : "Mark Received"}
               </button>
+              {p.status === "claimed" && (
+                <button
+                  onClick={() => undoClaim(p.id)}
+                  disabled={unclaiming === p.id}
+                  className="w-full h-10 rounded-lg text-zinc-600 text-sm font-semibold disabled:opacity-50 active:scale-[0.99]"
+                >
+                  {unclaiming === p.id ? "Undoing…" : "Undo claim"}
+                </button>
+              )}
             </div>
           </li>
         );
