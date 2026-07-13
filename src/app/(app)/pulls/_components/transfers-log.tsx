@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { MyPull } from "./my-pulls-tabs";
 import { ClipboardIcon, EmptyState } from "../../_components/empty-state";
 
@@ -12,10 +13,14 @@ const RANGES: { id: Range; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
-const STORAGE_KEY = "legends.pos-logged-line-ids";
-const DISMISSED_KEY = "legends.pos-dismissed-line-ids";
+// UI-only preference (kept in localStorage — it's per-device by design).
 const HIDE_KEY = "legends.pos-hide-entered";
-const DISMISS_AFTER_MS = 24 * 60 * 60 * 1000;
+// Legacy per-device store of checked line ids. Read once to migrate into the
+// server table, then left untouched (non-destructive).
+const LEGACY_LOGGED_KEY = "legends.pos-logged-line-ids";
+const MIGRATED_KEY = "legends.pos-log-migrated";
+
+export type EnteredEntry = { pull_line_id: string; entered_at: string };
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -38,150 +43,193 @@ function csvCell(v: string | number | null | undefined): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-// Stored format: { [lineId]: checkedAtMs }. Older array-shaped values from
-// prior releases are treated as "checked now" so nothing gets lost.
-function loadLogged(): Map<string, number> {
-  if (typeof window === "undefined") return new Map();
+// Read the legacy localStorage line ids (both the old array shape and the
+// newer { [id]: checkedAtMs } object shape). Used only for the one-time import.
+function readLegacyLoggedIds(): string[] {
+  if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Map();
+    const raw = window.localStorage.getItem(LEGACY_LOGGED_KEY);
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const now = Date.now();
-      return new Map(parsed.map((id: string) => [id, now]));
-    }
-    if (parsed && typeof parsed === "object") {
-      return new Map(
-        Object.entries(parsed).filter(
-          ([, v]) => typeof v === "number",
-        ) as [string, number][],
-      );
-    }
-    return new Map();
+    if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === "string");
+    if (parsed && typeof parsed === "object") return Object.keys(parsed);
+    return [];
   } catch {
-    return new Map();
+    return [];
   }
 }
 
-function saveLogged(map: Map<string, number>) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(Object.fromEntries(map)),
-    );
-  } catch {
-    // quota or privacy mode — fail silently
-  }
-}
-
-function loadDismissed(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.localStorage.getItem(DISMISSED_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDismissed(set: Set<string>) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...set]));
-  } catch {
-    // quota or privacy mode — fail silently
-  }
-}
-
-export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
+export function TransfersLog({
+  pulls,
+  storeId,
+  initialEntered,
+}: {
+  pulls: MyPull[];
+  storeId: string;
+  initialEntered: EnteredEntry[];
+}) {
   const [range, setRange] = useState<Range>("all");
-  // Map of lineId -> checkedAt ms. After DISMISS_AFTER_MS they get moved into
-  // the dismissed set and disappear from the list for good.
-  const [logged, setLogged] = useState<Map<string, number>>(() => new Map());
-  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
-  const [hydrated, setHydrated] = useState(false);
+  // Map of lineId -> entered_at ISO string, sourced from the server and kept
+  // live via realtime. This is the single source of truth for "entered".
+  const [entered, setEntered] = useState<Map<string, string>>(
+    () => new Map(initialEntered.map((e) => [e.pull_line_id, e.entered_at])),
+  );
   // Default to hiding entered rows so checking = the item leaves the list.
   const [hideLogged, setHideLogged] = useState(true);
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch.
+  // Resync from server truth when the page passes new initial data
+  // (e.g., navigating back to POS Log).
+  const initialRef = useRef(initialEntered);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLogged(loadLogged());
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDismissed(loadDismissed());
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem(HIDE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (stored !== null) setHideLogged(stored === "1");
+    if (initialEntered !== initialRef.current) {
+      initialRef.current = initialEntered;
+      setEntered(
+        new Map(initialEntered.map((e) => [e.pull_line_id, e.entered_at])),
+      );
     }
-    setHydrated(true);
+  }, [initialEntered]);
+
+  // Hydrate the hide-entered preference from localStorage after mount to avoid
+  // an SSR mismatch.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(HIDE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored !== null) setHideLogged(stored === "1");
   }, []);
 
-  // Persist whenever the logged / dismissed sets change, but only after
-  // hydration so we don't overwrite storage with empty defaults on mount.
   useEffect(() => {
-    if (hydrated) saveLogged(logged);
-  }, [logged, hydrated]);
-
-  useEffect(() => {
-    if (hydrated) saveDismissed(dismissed);
-  }, [dismissed, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(HIDE_KEY, hideLogged ? "1" : "0");
-  }, [hideLogged, hydrated]);
+  }, [hideLogged]);
 
-  // Sweep expired logged entries into the dismissed set. Runs on mount and
-  // once a minute so a long-lived tab keeps up as time passes.
+  // Realtime: keep every device at this store in sync as lines are checked or
+  // unchecked. FULL replica identity on the table means DELETE payloads still
+  // carry pull_line_id.
   useEffect(() => {
-    if (!hydrated) return;
-    function sweep() {
-      const cutoff = Date.now() - DISMISS_AFTER_MS;
-      const expired: string[] = [];
-      for (const [id, t] of logged) {
-        if (t <= cutoff) expired.push(id);
-      }
-      if (expired.length === 0) return;
-      setLogged((prev) => {
-        const next = new Map(prev);
-        for (const id of expired) next.delete(id);
-        return next;
-      });
-      setDismissed((prev) => {
-        const next = new Set(prev);
-        for (const id of expired) next.add(id);
-        return next;
-      });
-    }
-    sweep();
-    const iv = window.setInterval(sweep, 60_000);
-    return () => window.clearInterval(iv);
-  }, [hydrated, logged]);
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel("pos-log-entries")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "pos_log_entries",
+          filter: `store_id=eq.${storeId}`,
+        },
+        (payload) => {
+          const row = payload.new as EnteredEntry;
+          setEntered((prev) => {
+            const next = new Map(prev);
+            next.set(row.pull_line_id, row.entered_at);
+            return next;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "pos_log_entries",
+          filter: `store_id=eq.${storeId}`,
+        },
+        (payload) => {
+          const old = payload.old as { pull_line_id?: string };
+          if (!old.pull_line_id) return;
+          setEntered((prev) => {
+            if (!prev.has(old.pull_line_id!)) return prev;
+            const next = new Map(prev);
+            next.delete(old.pull_line_id!);
+            return next;
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [storeId]);
 
-  const toggleLogged = useCallback((lineId: string) => {
-    setLogged((prev) => {
-      const wasChecked = prev.has(lineId);
+  // One-time, non-destructive import of any pre-existing localStorage marks
+  // into the server table. Runs once per device; leaves the old key in place.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.localStorage.getItem(MIGRATED_KEY) === "1") return;
+    const legacyIds = readLegacyLoggedIds();
+    // Mark migrated up front so this never runs twice, even if the import
+    // below fails — the worst case is a user re-checks a few rows by hand.
+    window.localStorage.setItem(MIGRATED_KEY, "1");
+    if (legacyIds.length === 0) return;
+
+    const supabase = createSupabaseBrowserClient();
+    // The RPC ignores ids that don't belong to this store / aren't shipped, so
+    // it's safe to send everything the browser had stored.
+    supabase
+      .rpc("set_pos_log_entries", {
+        p_pull_line_ids: legacyIds,
+        p_entered: true,
+      })
+      .then(({ error }) => {
+        if (error) return;
+        // Optimistically reflect any imported ids that are in the current view;
+        // realtime will fill in the rest.
+        const now = new Date().toISOString();
+        setEntered((prev) => {
+          const next = new Map(prev);
+          for (const id of legacyIds) if (!next.has(id)) next.set(id, now);
+          return next;
+        });
+      });
+  }, []);
+
+  const writeEntered = useCallback(
+    async (lineIds: string[], value: boolean) => {
+      if (lineIds.length === 0) return;
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("set_pos_log_entries", {
+        p_pull_line_ids: lineIds,
+        p_entered: value,
+      });
+      if (error) alert(error.message);
+      return error;
+    },
+    [],
+  );
+
+  const toggleLogged = useCallback(
+    async (lineId: string) => {
+      const wasChecked = entered.has(lineId);
       if (wasChecked) {
         if (
           !window.confirm(
             "Uncheck this item? Only do this if it was checked by mistake.",
           )
         ) {
-          return prev;
+          return;
         }
-        const next = new Map(prev);
-        next.delete(lineId);
-        return next;
       }
-      const next = new Map(prev);
-      next.set(lineId, Date.now());
-      return next;
-    });
-  }, []);
+      // Optimistic update, with rollback on failure.
+      const prevValue = entered.get(lineId);
+      setEntered((prev) => {
+        const next = new Map(prev);
+        if (wasChecked) next.delete(lineId);
+        else next.set(lineId, new Date().toISOString());
+        return next;
+      });
+      const error = await writeEntered([lineId], !wasChecked);
+      if (error) {
+        setEntered((prev) => {
+          const next = new Map(prev);
+          if (wasChecked && prevValue !== undefined) next.set(lineId, prevValue);
+          else next.delete(lineId);
+          return next;
+        });
+      }
+    },
+    [entered, writeEntered],
+  );
 
   const rows = useMemo(() => {
     const now = new Date();
@@ -199,8 +247,6 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       if (!ref) return false;
       return new Date(ref) >= since;
     });
-
-    const isDismissed = (lineId: string) => dismissed.has(lineId);
 
     // Flatten to one row per line for POS-entry friendliness.
     type Row = {
@@ -224,7 +270,6 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
         ? `Store ${p.claimed_by_store.code}`
         : "Warehouse";
       for (const l of p.pull_lines) {
-        if (isDismissed(l.id)) continue;
         out.push({
           pullId: p.id,
           lineId: l.id,
@@ -249,33 +294,42 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       return a.pullId.localeCompare(b.pullId);
     });
     return out;
-  }, [pulls, range, dismissed]);
+  }, [pulls, range]);
 
   const visibleRows = useMemo(
-    () => (hideLogged ? rows.filter((r) => !logged.has(r.lineId)) : rows),
-    [rows, hideLogged, logged],
+    () => (hideLogged ? rows.filter((r) => !entered.has(r.lineId)) : rows),
+    [rows, hideLogged, entered],
   );
 
   const loggedCount = useMemo(
-    () => rows.reduce((n, r) => n + (logged.has(r.lineId) ? 1 : 0), 0),
-    [rows, logged],
+    () => rows.reduce((n, r) => n + (entered.has(r.lineId) ? 1 : 0), 0),
+    [rows, entered],
   );
 
   const uncheckedVisibleCount = useMemo(
-    () => visibleRows.reduce((n, r) => n + (logged.has(r.lineId) ? 0 : 1), 0),
-    [visibleRows, logged],
+    () => visibleRows.reduce((n, r) => n + (entered.has(r.lineId) ? 0 : 1), 0),
+    [visibleRows, entered],
   );
 
-  function checkAllVisible() {
-    if (uncheckedVisibleCount === 0) return;
-    setLogged((prev) => {
+  async function checkAllVisible() {
+    const toCheck = visibleRows
+      .filter((r) => !entered.has(r.lineId))
+      .map((r) => r.lineId);
+    if (toCheck.length === 0) return;
+    const now = new Date().toISOString();
+    setEntered((prev) => {
       const next = new Map(prev);
-      const now = Date.now();
-      for (const r of visibleRows) {
-        if (!next.has(r.lineId)) next.set(r.lineId, now);
-      }
+      for (const id of toCheck) if (!next.has(id)) next.set(id, now);
       return next;
     });
+    const error = await writeEntered(toCheck, true);
+    if (error) {
+      setEntered((prev) => {
+        const next = new Map(prev);
+        for (const id of toCheck) next.delete(id);
+        return next;
+      });
+    }
   }
 
   function exportCsv() {
@@ -304,7 +358,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
           r.size ?? "",
           r.qty,
           r.status,
-          logged.has(r.lineId) ? "yes" : "no",
+          entered.has(r.lineId) ? "yes" : "no",
         ]
           .map(csvCell)
           .join(","),
@@ -319,20 +373,6 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       .slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }
-
-  function clearLogged() {
-    const dismissedCount = dismissed.size;
-    if (loggedCount === 0 && dismissedCount === 0) return;
-    if (
-      !confirm(
-        `Reset entered items? This restores ${loggedCount} checked and ${dismissedCount} auto-cleared item(s) so they appear again.`,
-      )
-    ) {
-      return;
-    }
-    setLogged(new Map());
-    setDismissed(new Set());
   }
 
   return (
@@ -360,9 +400,9 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
             </div>
             <p className="text-sm text-amber-900 mt-0.5 leading-snug">
               This is the most important step. Enter each transfer into POS,
-              then tap the row to check it off — the row disappears from the
-              list. Checked items auto-clear after 24 hours. Unchecking
-              requires confirmation to prevent double entry.
+              then tap the row to check it off. Checks sync across every device
+              at your store. Use Hide entered to tidy the list — nothing is ever
+              deleted. Unchecking requires confirmation to prevent double entry.
             </p>
           </div>
         </div>
@@ -418,13 +458,6 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
             >
               {hideLogged ? "Show entered" : "Hide entered"}
             </button>
-            <button
-              onClick={clearLogged}
-              disabled={loggedCount === 0}
-              className="h-9 px-3 rounded-full text-xs font-semibold bg-white text-red-600 border border-zinc-300 disabled:opacity-40"
-            >
-              Reset
-            </button>
           </div>
         </div>
       )}
@@ -444,7 +477,7 @@ export function TransfersLog({ pulls }: { pulls: MyPull[] }) {
       ) : (
         <ul className="divide-y divide-zinc-200">
           {visibleRows.map((r) => {
-            const isLogged = logged.has(r.lineId);
+            const isLogged = entered.has(r.lineId);
             return (
               <li key={r.lineId}>
                 <button

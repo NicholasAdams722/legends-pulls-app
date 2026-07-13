@@ -163,8 +163,15 @@ export default async function HelpPage() {
               Tap <b>Check all</b> to bulk-log a batch.
             </>,
             <>
-              Accidental check? Tap it again within 24 hours to undo — after
-              that it locks in.
+              Checks <b>sync across every device</b> at your store, so everyone
+              sees the same progress.
+            </>,
+            <>
+              Use <b>Hide entered</b> to tidy the list — checked items are kept,
+              never deleted.
+            </>,
+            <>
+              Accidental check? Tap it again to undo (it asks you to confirm).
             </>,
           ]}
         />
