@@ -5,31 +5,48 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useToast } from "../../../_components/toast";
 
-export function PullActions({ pullId }: { pullId: string }) {
+type Action = "claim" | "pass" | "unpass";
+
+const RPC: Record<Action, string> = {
+  claim: "claim_pull",
+  pass: "pass_pull",
+  unpass: "unpass_pull",
+};
+
+export function PullActions({
+  pullId,
+  passed = false,
+}: {
+  pullId: string;
+  passed?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
-  const [busy, setBusy] = useState<"claim" | "pass" | null>(null);
+  const [busy, setBusy] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function call(action: "claim" | "pass") {
+  async function call(action: Action) {
     setBusy(action);
     setError(null);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error: rpcErr } = await supabase.rpc(
-        action === "claim" ? "claim_pull" : "pass_pull",
-        { p_pull_id: pullId },
-      );
+      const { error: rpcErr } = await supabase.rpc(RPC[action], {
+        p_pull_id: pullId,
+      });
       if (rpcErr) {
         setError(rpcErr.message);
         return;
       }
       if (action === "claim") {
         toast.show("Claimed — find it in your Claims tab");
-      } else {
+        router.push("/feed");
+      } else if (action === "pass") {
         toast.show("Passed");
+        router.push("/feed");
+      } else {
+        // Undo pass: stay on the detail page so the store can re-decide.
+        toast.show("Pass undone");
       }
-      router.push("/feed");
       router.refresh();
     } finally {
       setBusy(null);
@@ -39,18 +56,43 @@ export function PullActions({ pullId }: { pullId: string }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-zinc-600 leading-relaxed">
-        <span className="font-semibold text-zinc-800">Pass</span> to skip this
-        pull. <span className="font-semibold text-zinc-800">Claim</span> to take
-        it for your store — it will be shipped to you on the next truck.
+        {passed ? (
+          <>
+            You <span className="font-semibold text-zinc-800">passed</span> on
+            this pull. Changed your mind?{" "}
+            <span className="font-semibold text-zinc-800">Claim</span> it for
+            your store, or <span className="font-semibold text-zinc-800">
+              undo the pass
+            </span>{" "}
+            to leave it on the feed.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-zinc-800">Pass</span> to skip
+            this pull.{" "}
+            <span className="font-semibold text-zinc-800">Claim</span> to take
+            it for your store — it will be shipped to you on the next truck.
+          </>
+        )}
       </p>
       <div className="flex gap-3">
-        <button
-          onClick={() => call("pass")}
-          disabled={busy !== null}
-          className="flex-1 h-16 rounded-xl bg-white border border-zinc-300 text-lg font-semibold text-zinc-800 disabled:opacity-50 active:scale-[0.98]"
-        >
-          {busy === "pass" ? "Passing…" : "Pass"}
-        </button>
+        {passed ? (
+          <button
+            onClick={() => call("unpass")}
+            disabled={busy !== null}
+            className="flex-1 h-16 rounded-xl bg-white border border-zinc-300 text-lg font-semibold text-zinc-800 disabled:opacity-50 active:scale-[0.98]"
+          >
+            {busy === "unpass" ? "Undoing…" : "Undo pass"}
+          </button>
+        ) : (
+          <button
+            onClick={() => call("pass")}
+            disabled={busy !== null}
+            className="flex-1 h-16 rounded-xl bg-white border border-zinc-300 text-lg font-semibold text-zinc-800 disabled:opacity-50 active:scale-[0.98]"
+          >
+            {busy === "pass" ? "Passing…" : "Pass"}
+          </button>
+        )}
         <button
           onClick={() => call("claim")}
           disabled={busy !== null}

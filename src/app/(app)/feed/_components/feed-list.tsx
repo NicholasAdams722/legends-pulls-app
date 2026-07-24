@@ -9,16 +9,28 @@ import { EmptyState, InboxIcon } from "../../_components/empty-state";
 
 export function FeedList({
   initialPulls,
+  initialPassedIds,
   stores,
   ownStoreId,
 }: {
   initialPulls: FeedPull[];
+  initialPassedIds: string[];
   stores: Store[];
   ownStoreId: string;
 }) {
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "soft" | "hard">("all");
   const [pulls, setPulls] = useState<FeedPull[]>(initialPulls);
+  const [passedIds, setPassedIds] = useState<Set<string>>(
+    () => new Set(initialPassedIds),
+  );
+
+  // A ref mirror of passedIds so the realtime handlers (set up once) can read
+  // the current pass set without re-subscribing on every change.
+  const passedIdsRef = useRef(passedIds);
+  useEffect(() => {
+    passedIdsRef.current = passedIds;
+  }, [passedIds]);
 
   // Re-seed when server gives us new initial data (e.g., hard nav).
   const initialRef = useRef(initialPulls);
@@ -26,8 +38,9 @@ export function FeedList({
     if (initialPulls !== initialRef.current) {
       initialRef.current = initialPulls;
       setPulls(initialPulls);
+      setPassedIds(new Set(initialPassedIds));
     }
-  }, [initialPulls]);
+  }, [initialPulls, initialPassedIds]);
 
   // Realtime: instead of refetching the whole feed on every change,
   // merge row changes into local state. Much cheaper than router.refresh()
@@ -51,7 +64,7 @@ export function FeedList({
           const { data } = await supabase
             .from("pulls")
             .select(
-              `id, photo_urls, style_name, good_type, description,
+              `id, photo_urls, style_name, good_type, description, status,
                from_store:stores!pulls_from_store_id_fkey(*),
                pull_lines(*)`,
             )
@@ -69,9 +82,29 @@ export function FeedList({
         { event: "UPDATE", schema: "public", table: "pulls" },
         (payload) => {
           const row = payload.new as { id: string; status?: PullStatus };
-          if (row.status && row.status !== "available") {
-            setPulls((prev) => prev.filter((p) => p.id !== row.id));
+          if (!row.status) return;
+          if (row.status === "available") {
+            // Back on the market (e.g. a peer undid a claim): keep it and
+            // refresh its status if we're already showing it.
+            setPulls((prev) =>
+              prev.map((p) =>
+                p.id === row.id ? { ...p, status: row.status! } : p,
+              ),
+            );
+            return;
           }
+          // A pull we passed on that consensus routed to the warehouse stays
+          // in the feed as "Routed"; anything else (claimed/packed/… by
+          // another store) leaves the feed.
+          setPulls((prev) =>
+            prev.flatMap((p) => {
+              if (p.id !== row.id) return [p];
+              if (row.status === "to_warehouse" && passedIdsRef.current.has(p.id)) {
+                return [{ ...p, status: row.status }];
+              }
+              return [];
+            }),
+          );
         },
       )
       .on(
@@ -91,8 +124,37 @@ export function FeedList({
           filter: `store_id=eq.${ownStoreId}`,
         },
         (payload) => {
+          // This store passed on another device/tab: keep the pull, just mark
+          // it passed. (An accompanying pulls UPDATE handles the consensus
+          // route-to-warehouse case.)
           const row = payload.new as { pull_id: string };
-          setPulls((prev) => prev.filter((p) => p.id !== row.pull_id));
+          setPassedIds((prev) => {
+            if (prev.has(row.pull_id)) return prev;
+            const next = new Set(prev);
+            next.add(row.pull_id);
+            return next;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "pull_passes",
+          filter: `store_id=eq.${ownStoreId}`,
+        },
+        (payload) => {
+          // Undo-pass on another device/tab: clear the passed mark. Relies on
+          // pull_passes REPLICA IDENTITY FULL (migration 0014) so store_id is
+          // present in the DELETE payload for the filter to match.
+          const row = payload.old as { pull_id: string };
+          setPassedIds((prev) => {
+            if (!prev.has(row.pull_id)) return prev;
+            const next = new Set(prev);
+            next.delete(row.pull_id);
+            return next;
+          });
         },
       )
       .subscribe();
@@ -156,7 +218,7 @@ export function FeedList({
       ) : (
         <div className="p-3 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4 lg:p-4 xl:grid-cols-5">
           {filtered.map((p) => (
-            <PullCard key={p.id} pull={p} />
+            <PullCard key={p.id} pull={p} passed={passedIds.has(p.id)} />
           ))}
         </div>
       )}

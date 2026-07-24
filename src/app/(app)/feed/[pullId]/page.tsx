@@ -30,20 +30,29 @@ export default async function PullDetailPage({
   const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
-  const { data } = await supabase
-    .from("pulls")
-    .select(
-      `id, photo_urls, style_name, good_type, description, status, from_store_id,
-       from_store:stores!pulls_from_store_id_fkey(*),
-       posted_by_user:users!pulls_posted_by_fkey(name),
-       pull_lines(*)`,
-    )
-    .eq("id", pullId)
-    .maybeSingle();
+  const [{ data }, passRes] = await Promise.all([
+    supabase
+      .from("pulls")
+      .select(
+        `id, photo_urls, style_name, good_type, description, status, from_store_id,
+         from_store:stores!pulls_from_store_id_fkey(*),
+         posted_by_user:users!pulls_posted_by_fkey(name),
+         pull_lines(*)`,
+      )
+      .eq("id", pullId)
+      .maybeSingle(),
+    supabase
+      .from("pull_passes")
+      .select("id")
+      .eq("pull_id", pullId)
+      .eq("store_id", store.id)
+      .maybeSingle(),
+  ]);
 
   if (!data) notFound();
   const pull = data as unknown as DetailPull;
   const isOwn = pull.from_store_id === store.id;
+  const passedByMe = !!passRes.data;
   const total = totalQuantity(pull.pull_lines);
 
   return (
@@ -119,15 +128,27 @@ export default async function PullDetailPage({
 
         {pull.status !== "available" ? (
           <div className="rounded-lg bg-zinc-100 border border-zinc-200 p-4 text-base text-zinc-700">
-            This pull is no longer available (status:{" "}
-            <span className="text-zinc-900 font-semibold">{pull.status}</span>).
+            {passedByMe && pull.status === "to_warehouse" ? (
+              <>
+                You passed on this, and every store passed — it&apos;s been
+                routed to the warehouse, so it can no longer be claimed.
+              </>
+            ) : (
+              <>
+                This pull is no longer available (status:{" "}
+                <span className="text-zinc-900 font-semibold">
+                  {pull.status}
+                </span>
+                ).
+              </>
+            )}
           </div>
         ) : isOwn ? (
           <div className="rounded-lg bg-zinc-100 border border-zinc-200 p-4 text-base text-zinc-700">
             You posted this pull. Manage it from My Pulls.
           </div>
         ) : (
-          <PullActions pullId={pull.id} />
+          <PullActions pullId={pull.id} passed={passedByMe} />
         )}
       </div>
     </div>
