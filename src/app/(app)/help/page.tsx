@@ -105,7 +105,9 @@ export default async function HelpPage() {
           <Bullets
             items={[
               <>
-                <b>Unclaimed</b> — still up for grabs.
+                <b>Unclaimed</b> — still up for grabs. You can also select one
+                or more here and <b>Ship to warehouse</b> to clear stock into
+                the warehouse — no warehouse action needed.
               </>,
               <>
                 <b>Pack</b> — someone claimed one of yours. Time to box it up.
@@ -118,6 +120,15 @@ export default async function HelpPage() {
           <p>
             Cards are grouped by destination, so you can pack everything for
             Store 2 together, then everything for Store 4, and so on.
+          </p>
+
+          <SubHeading>Send stock back to the warehouse</SubHeading>
+          <p>
+            Need to free up space? On the <b>Unclaimed</b> tab, tap the
+            checkbox on any pulls you want to send back, then{" "}
+            <b>Ship to warehouse</b>. They leave this list right away and show
+            up in your <b>POS Log</b> under the <b>Warehouse</b> group, ready to
+            enter into POS — the warehouse doesn&apos;t need to do anything.
           </p>
 
           <SubHeading>Pack it up</SubHeading>

@@ -78,6 +78,11 @@ export function MyPullsTabs({
     setPulls((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const removePulls = useCallback((ids: string[]) => {
+    const set = new Set(ids);
+    setPulls((prev) => prev.filter((p) => !set.has(p.id)));
+  }, []);
+
   // Realtime: scope to this store's pulls and merge incoming rows into
   // local state instead of triggering a full server refetch.
   useEffect(() => {
@@ -190,7 +195,11 @@ export function MyPullsTabs({
       {view === "posted" && (
         <>
           <JourneyHeader status="available" />
-          <PostedList pulls={pulls} onDeleted={removePull} />
+          <PostedList
+            pulls={pulls}
+            onDeleted={removePull}
+            onShipped={removePulls}
+          />
         </>
       )}
       {view === "pack" && (
