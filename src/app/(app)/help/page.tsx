@@ -153,25 +153,36 @@ export default async function HelpPage() {
 
       <Section title="POS Log">
         <p>
-          After you receive a pull, log the sale in your POS system, then check
-          it off here. It&apos;s how the team knows the loop is closed.
+          Once you mark a tote <b>Shipped</b>, every line on it lands here
+          waiting to be keyed into your real POS system. This is the step that
+          keeps inventory honest.
         </p>
         <Bullets
           items={[
-            <>Filter by any date range, or view everything.</>,
             <>
-              Tap <b>Check all</b> to bulk-log a batch.
+              The list is <b>grouped by the store it&apos;s going to</b>, oldest
+              first — so you can knock out everything for store 1, then
+              everything for store 2.
             </>,
             <>
-              Checks <b>sync across every device</b> at your store, so everyone
-              sees the same progress.
+              <b>One at a time.</b> Enter a transfer into POS, then check off
+              that one row. There is no bulk check, on purpose.
             </>,
             <>
-              Use <b>Hide entered</b> to tidy the list — checked items are kept,
+              Checked by mistake? An <b>Undo</b> button sits on the row for 60
+              seconds. After that it locks — it stays checked and can&apos;t be
+              unchecked.
+            </>,
+            <>
+              Logged rows <b>stay visible for 24 hours</b>, greyed and ticked,
+              so you can see at a glance what&apos;s done.
+            </>,
+            <>
+              After 24 hours they move to the <b>Archive</b> tab. Read-only,
               never deleted.
             </>,
             <>
-              Accidental check? Tap it again to undo (it asks you to confirm).
+              Everything <b>syncs across every device</b> at your store, live.
             </>,
           ]}
         />

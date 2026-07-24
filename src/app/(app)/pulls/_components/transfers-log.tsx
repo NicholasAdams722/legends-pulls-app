@@ -2,45 +2,41 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { MyPull } from "./my-pulls-tabs";
+import { storeColor } from "@/lib/store-colors";
+import {
+  groupByDestination,
+  rowState,
+  splitActiveAndArchive,
+  undoSecondsLeft,
+  type PosLogRow,
+  type PosLogSettings,
+} from "@/lib/pos-log";
 import { ClipboardIcon, EmptyState } from "../../_components/empty-state";
 
-type Range = "today" | "week" | "all";
-
-const RANGES: { id: Range; label: string }[] = [
-  { id: "today", label: "Today" },
-  { id: "week", label: "This week" },
-  { id: "all", label: "All" },
-];
-
-// UI-only preference (kept in localStorage — it's per-device by design).
-const HIDE_KEY = "legends.pos-hide-entered";
-// Legacy per-device store of checked line ids. Read once to migrate into the
-// server table, then left untouched (non-destructive).
+// Legacy per-device store of checked line ids, from before POS log state lived
+// on the server. Read once to import into the server table, then left in place
+// (non-destructive).
 const LEGACY_LOGGED_KEY = "legends.pos-logged-line-ids";
 const MIGRATED_KEY = "legends.pos-log-migrated";
 
+type Tab = "todo" | "archive";
+type Notice = { tone: "error" | "info"; text: string } | null;
+
 export type EnteredEntry = { pull_line_id: string; entered_at: string };
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function startOfWeek(d: Date): Date {
-  const x = startOfDay(d);
-  // Treat Monday as the start of the week.
-  const day = x.getDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  x.setDate(x.getDate() + diff);
-  return x;
-}
 
 function csvCell(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "";
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function shortTime(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 // Read the legacy localStorage line ids (both the old array shape and the
@@ -60,52 +56,85 @@ function readLegacyLoggedIds(): string[] {
 }
 
 export function TransfersLog({
-  pulls,
   storeId,
-  initialEntered,
+  activeRows,
+  archiveRows,
+  settings,
+  loadError,
 }: {
-  pulls: MyPull[];
   storeId: string;
-  initialEntered: EnteredEntry[];
+  activeRows: PosLogRow[];
+  archiveRows: PosLogRow[];
+  settings: PosLogSettings;
+  loadError: string | null;
 }) {
-  const [range, setRange] = useState<Range>("all");
-  // Map of lineId -> entered_at ISO string, sourced from the server and kept
-  // live via realtime. This is the single source of truth for "entered".
-  const [entered, setEntered] = useState<Map<string, string>>(
-    () => new Map(initialEntered.map((e) => [e.pull_line_id, e.entered_at])),
-  );
-  // Default to hiding entered rows so checking = the item leaves the list.
-  const [hideLogged, setHideLogged] = useState(true);
+  const [tab, setTab] = useState<Tab>("todo");
+  const [notice, setNotice] = useState<Notice>(null);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
 
-  // Resync from server truth when the page passes new initial data
-  // (e.g., navigating back to POS Log).
-  const initialRef = useRef(initialEntered);
-  useEffect(() => {
-    if (initialEntered !== initialRef.current) {
-      initialRef.current = initialEntered;
-      setEntered(
-        new Map(initialEntered.map((e) => [e.pull_line_id, e.entered_at])),
-      );
+  // lineId -> entered_at (ISO), sourced from the server and kept live via
+  // realtime. Single source of truth for "this has been logged".
+  const [entered, setEntered] = useState<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    for (const r of [...activeRows, ...archiveRows]) {
+      if (r.entered_at) map.set(r.pull_line_id, r.entered_at);
     }
-  }, [initialEntered]);
+    return map;
+  });
 
-  // Hydrate the hide-entered preference from localStorage after mount to avoid
-  // an SSR mismatch.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(HIDE_KEY);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored !== null) setHideLogged(stored === "1");
+  // Device clocks lie. Everything time-based is computed against the database
+  // clock: offset = device - server, refreshed on every successful log.
+  const offsetRef = useRef(0);
+  // null until mounted — rowState() treats that as "locked", so a stale Undo
+  // button can never render before the clock is trusted.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  const syncNow = useCallback(() => {
+    setNowMs(Date.now() - offsetRef.current);
   }, []);
 
+  // Resync from server truth when the page passes new data (e.g. navigating
+  // back to POS Log).
+  const rowsRef = useRef(activeRows);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(HIDE_KEY, hideLogged ? "1" : "0");
-  }, [hideLogged]);
+    if (activeRows === rowsRef.current) return;
+    rowsRef.current = activeRows;
+    setEntered(() => {
+      const map = new Map<string, string>();
+      for (const r of [...activeRows, ...archiveRows]) {
+        if (r.entered_at) map.set(r.pull_line_id, r.entered_at);
+      }
+      return map;
+    });
+  }, [activeRows, archiveRows]);
 
-  // Realtime: keep every device at this store in sync as lines are checked or
-  // unchecked. FULL replica identity on the table means DELETE payloads still
-  // carry pull_line_id.
+  useEffect(() => {
+    const parsed = settings.serverNow ? Date.parse(settings.serverNow) : NaN;
+    offsetRef.current = Number.isFinite(parsed) ? Date.now() - parsed : 0;
+    setNowMs(Date.now() - offsetRef.current);
+  }, [settings.serverNow]);
+
+  // Anything still inside its undo window needs a per-second countdown; the
+  // rest of the time a slow tick is enough to move rows into the archive.
+  const hasCountdown = useMemo(() => {
+    if (nowMs === null) return false;
+    for (const at of entered.values()) {
+      if (nowMs - Date.parse(at) <= settings.undoWindowSeconds * 1000) return true;
+    }
+    return false;
+  }, [entered, nowMs, settings.undoWindowSeconds]);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setNowMs(Date.now() - offsetRef.current),
+      hasCountdown ? 500 : 20_000,
+    );
+    return () => clearInterval(id);
+  }, [hasCountdown]);
+
+  // Realtime: keep every device at this store in sync as lines are logged or
+  // undone. FULL replica identity means DELETE payloads still carry
+  // pull_line_id.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
@@ -164,8 +193,8 @@ export function TransfersLog({
     if (legacyIds.length === 0) return;
 
     const supabase = createSupabaseBrowserClient();
-    // The RPC ignores ids that don't belong to this store / aren't shipped, so
-    // it's safe to send everything the browser had stored.
+    // The RPC ignores ids that don't belong to this store / weren't shipped,
+    // so it's safe to send everything the browser had stored.
     supabase
       .rpc("set_pos_log_entries", {
         p_pull_line_ids: legacyIds,
@@ -175,7 +204,7 @@ export function TransfersLog({
         if (error) return;
         // Optimistically reflect any imported ids that are in the current view;
         // realtime will fill in the rest.
-        const now = new Date().toISOString();
+        const now = new Date(Date.now() - offsetRef.current).toISOString();
         setEntered((prev) => {
           const next = new Map(prev);
           for (const id of legacyIds) if (!next.has(id)) next.set(id, now);
@@ -184,157 +213,103 @@ export function TransfersLog({
       });
   }, []);
 
-  const writeEntered = useCallback(
-    async (lineIds: string[], value: boolean) => {
-      if (lineIds.length === 0) return;
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.rpc("set_pos_log_entries", {
-        p_pull_line_ids: lineIds,
-        p_entered: value,
-      });
-      if (error) alert(error.message);
-      return error;
-    },
-    [],
-  );
+  const markBusy = useCallback((lineId: string, on: boolean) => {
+    setBusy((prev) => {
+      if (prev.has(lineId) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(lineId);
+      else next.delete(lineId);
+      return next;
+    });
+  }, []);
 
-  const toggleLogged = useCallback(
+  // LOG: optimistic, because the tap needs to feel instant while the manager is
+  // keying into POS. Rolled back if the server rejects it.
+  const logRow = useCallback(
     async (lineId: string) => {
-      const wasChecked = entered.has(lineId);
-      if (wasChecked) {
-        if (
-          !window.confirm(
-            "Uncheck this item? Only do this if it was checked by mistake.",
-          )
-        ) {
-          return;
-        }
-      }
-      // Optimistic update, with rollback on failure.
-      const prevValue = entered.get(lineId);
-      setEntered((prev) => {
-        const next = new Map(prev);
-        if (wasChecked) next.delete(lineId);
-        else next.set(lineId, new Date().toISOString());
-        return next;
+      if (busy.has(lineId) || entered.has(lineId)) return;
+      markBusy(lineId, true);
+      setNotice(null);
+      const optimisticAt = new Date(Date.now() - offsetRef.current).toISOString();
+      setEntered((prev) => new Map(prev).set(lineId, optimisticAt));
+      syncNow();
+
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("log_pos_entry", {
+        p_pull_line_id: lineId,
       });
-      const error = await writeEntered([lineId], !wasChecked);
+      markBusy(lineId, false);
+
       if (error) {
         setEntered((prev) => {
           const next = new Map(prev);
-          if (wasChecked && prevValue !== undefined) next.set(lineId, prevValue);
-          else next.delete(lineId);
+          next.delete(lineId);
           return next;
         });
+        setNotice({ tone: "error", text: error.message });
+        return;
       }
+
+      const row = (data as { entered_at: string; server_now: string }[] | null)?.[0];
+      if (!row) return;
+      // Re-anchor to the database clock and use its entered_at, so the undo
+      // countdown matches what unlog_pos_entry() will actually enforce.
+      const serverNow = Date.parse(row.server_now);
+      if (Number.isFinite(serverNow)) offsetRef.current = Date.now() - serverNow;
+      setEntered((prev) => new Map(prev).set(lineId, row.entered_at));
+      syncNow();
     },
-    [entered, writeEntered],
+    [busy, entered, markBusy, syncNow],
   );
 
-  const rows = useMemo(() => {
-    const now = new Date();
-    const since =
-      range === "today"
-        ? startOfDay(now)
-        : range === "week"
-          ? startOfWeek(now)
-          : null;
+  // UNDO: not optimistic. The server decides whether the window is still open,
+  // and the checkbox must not flicker off for something that stays logged.
+  const undoRow = useCallback(
+    async (lineId: string) => {
+      if (busy.has(lineId)) return;
+      markBusy(lineId, true);
+      setNotice(null);
 
-    const filtered = pulls.filter((p) => {
-      if (p.status !== "sent" && p.status !== "received") return false;
-      const ref = p.sent_at ?? p.received_at;
-      if (!since) return true;
-      if (!ref) return false;
-      return new Date(ref) >= since;
-    });
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("unlog_pos_entry", {
+        p_pull_line_id: lineId,
+      });
+      markBusy(lineId, false);
 
-    // Flatten to one row per line for POS-entry friendliness.
-    type Row = {
-      pullId: string;
-      lineId: string;
-      sentAt: string | null;
-      status: "sent" | "received";
-      style: string;
-      sku: string;
-      color: string | null;
-      size: string | null;
-      qty: number;
-      fromCode: number;
-      toCode: number | null;
-      toLabel: string;
-    };
-    const out: Row[] = [];
-    for (const p of filtered) {
-      const toCode = p.claimed_by_store?.code ?? null;
-      const toLabel = p.claimed_by_store
-        ? `Store ${p.claimed_by_store.code}`
-        : "Warehouse";
-      for (const l of p.pull_lines) {
-        out.push({
-          pullId: p.id,
-          lineId: l.id,
-          sentAt: p.sent_at,
-          status: p.status as "sent" | "received",
-          style: p.style_name,
-          sku: l.sku,
-          color: l.color,
-          size: l.size,
-          qty: l.quantity,
-          fromCode: p.from_store.code,
-          toCode,
-          toLabel,
-        });
+      if (error) {
+        setNotice({ tone: "error", text: error.message });
+        syncNow();
+        return;
       }
-    }
-    // Sort by sent_at desc, then by pull id for stability.
-    out.sort((a, b) => {
-      const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
-      const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
-      if (tb !== ta) return tb - ta;
-      return a.pullId.localeCompare(b.pullId);
-    });
-    return out;
-  }, [pulls, range]);
-
-  const visibleRows = useMemo(
-    () => (hideLogged ? rows.filter((r) => !entered.has(r.lineId)) : rows),
-    [rows, hideLogged, entered],
-  );
-
-  const loggedCount = useMemo(
-    () => rows.reduce((n, r) => n + (entered.has(r.lineId) ? 1 : 0), 0),
-    [rows, entered],
-  );
-
-  const uncheckedVisibleCount = useMemo(
-    () => visibleRows.reduce((n, r) => n + (entered.has(r.lineId) ? 0 : 1), 0),
-    [visibleRows, entered],
-  );
-
-  async function checkAllVisible() {
-    const toCheck = visibleRows
-      .filter((r) => !entered.has(r.lineId))
-      .map((r) => r.lineId);
-    if (toCheck.length === 0) return;
-    const now = new Date().toISOString();
-    setEntered((prev) => {
-      const next = new Map(prev);
-      for (const id of toCheck) if (!next.has(id)) next.set(id, now);
-      return next;
-    });
-    const error = await writeEntered(toCheck, true);
-    if (error) {
       setEntered((prev) => {
         const next = new Map(prev);
-        for (const id of toCheck) next.delete(id);
+        next.delete(lineId);
         return next;
       });
-    }
-  }
+      syncNow();
+    },
+    [busy, markBusy, syncNow],
+  );
+
+  const { toLog, archived } = useMemo(
+    () => splitActiveAndArchive(activeRows, archiveRows, entered, nowMs, settings),
+    [activeRows, archiveRows, entered, nowMs, settings],
+  );
+
+  const groups = useMemo(
+    () => groupByDestination(toLog, entered),
+    [toLog, entered],
+  );
+
+  const remaining = useMemo(
+    () => toLog.reduce((n, r) => n + (entered.has(r.pull_line_id) ? 0 : 1), 0),
+    [toLog, entered],
+  );
 
   function exportCsv() {
+    const rows = tab === "todo" ? toLog : archived;
     const header = [
-      "sent_at",
+      "shipped_at",
       "from_store",
       "to_store",
       "style",
@@ -342,23 +317,23 @@ export function TransfersLog({
       "color",
       "size",
       "qty",
-      "status",
-      "pos_logged",
+      "pos_logged_at",
+      "pos_logged_by",
     ];
     const lines = [header.join(",")];
     for (const r of rows) {
       lines.push(
         [
-          r.sentAt ?? "",
-          r.fromCode,
-          r.toLabel,
-          r.style,
+          r.sent_at,
+          r.from_store_code,
+          r.to_store_code ?? "",
+          r.style_name,
           r.sku,
           r.color ?? "",
           r.size ?? "",
-          r.qty,
-          r.status,
-          entered.has(r.lineId) ? "yes" : "no",
+          r.quantity,
+          entered.get(r.pull_line_id) ?? "",
+          r.entered_by_name ?? "",
         ]
           .map(csvCell)
           .join(","),
@@ -368,7 +343,7 @@ export function TransfersLog({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `legends-transfers-${range}-${new Date()
+    a.download = `legends-pos-log-${tab}-${new Date()
       .toISOString()
       .slice(0, 10)}.csv`;
     a.click();
@@ -379,164 +354,314 @@ export function TransfersLog({
     <div>
       <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
         <div className="flex items-start gap-2.5">
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="shrink-0 mt-0.5 text-amber-700"
-          >
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
+          <WarningIcon />
           <div className="min-w-0">
             <div className="text-sm font-bold uppercase tracking-wide text-amber-900">
               Log into POS
             </div>
             <p className="text-sm text-amber-900 mt-0.5 leading-snug">
-              This is the most important step. Enter each transfer into POS,
-              then tap the row to check it off. Checks sync across every device
-              at your store. Use Hide entered to tidy the list — nothing is ever
-              deleted. Unchecking requires confirmation to prevent double entry.
+              Work one destination store at a time. Enter a transfer into POS,
+              then check off that one row. You have{" "}
+              {settings.undoWindowSeconds} seconds to undo a mistake — after
+              that the row locks so the log stays trustworthy. Logged rows stay
+              visible here for 24 hours, then move to the Archive.
             </p>
           </div>
         </div>
       </div>
 
+      {loadError && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200 text-sm text-red-900">
+          <b>POS Log could not load.</b> {loadError}
+        </div>
+      )}
+
       <div className="px-4 py-3 flex gap-2 border-b border-zinc-200 overflow-x-auto">
-        {RANGES.map((r) => {
-          const active = r.id === range;
-          return (
-            <button
-              key={r.id}
-              onClick={() => setRange(r.id)}
-              className={`shrink-0 h-11 px-4 rounded-full text-sm font-semibold border ${
-                active
-                  ? "bg-zinc-900 text-white border-zinc-900"
-                  : "bg-white text-zinc-700 border-zinc-300"
-              }`}
-            >
-              {r.label}
-            </button>
-          );
-        })}
+        <TabButton
+          active={tab === "todo"}
+          onClick={() => setTab("todo")}
+          label={remaining > 0 ? `To log (${remaining})` : "To log"}
+        />
+        <TabButton
+          active={tab === "archive"}
+          onClick={() => setTab("archive")}
+          label={`Archive${archived.length ? ` (${archived.length})` : ""}`}
+        />
         <button
           onClick={exportCsv}
-          disabled={rows.length === 0}
+          disabled={(tab === "todo" ? toLog : archived).length === 0}
           className="ml-auto shrink-0 h-11 px-4 rounded-full text-sm font-semibold bg-zinc-900 text-white disabled:opacity-40"
         >
           Export CSV
         </button>
       </div>
 
-      {rows.length > 0 && (
-        <div className="px-4 py-2.5 flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50 flex-wrap">
-          <div className="text-sm font-semibold text-zinc-800">
-            {loggedCount} of {rows.length} entered
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={checkAllVisible}
-              disabled={uncheckedVisibleCount === 0}
-              className="h-9 px-3 rounded-full text-xs font-semibold bg-emerald-500 text-white border border-emerald-500 disabled:opacity-40"
-            >
-              Check all
-              {uncheckedVisibleCount > 0 && ` (${uncheckedVisibleCount})`}
-            </button>
-            <button
-              onClick={() => setHideLogged((v) => !v)}
-              className={`h-9 px-3 rounded-full text-xs font-semibold border ${
-                hideLogged
-                  ? "bg-zinc-900 text-white border-zinc-900"
-                  : "bg-white text-zinc-700 border-zinc-300"
-              }`}
-            >
-              {hideLogged ? "Show entered" : "Hide entered"}
-            </button>
-          </div>
+      {notice && (
+        <div
+          role="alert"
+          className={`px-4 py-3 border-b flex items-start gap-3 ${
+            notice.tone === "error"
+              ? "bg-red-50 border-red-200 text-red-900"
+              : "bg-zinc-50 border-zinc-200 text-zinc-800"
+          }`}
+        >
+          <div className="text-sm font-semibold flex-1">{notice.text}</div>
+          <button
+            onClick={() => setNotice(null)}
+            className="text-sm font-bold underline shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {visibleRows.length === 0 ? (
-        rows.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardIcon />}
-            title="No transfers shipped in this range"
-            body="After you mark a tote Shipped in the To ship tab, every line shows up here ready for POS entry. Tap each row to check it off as you enter it."
-          />
+      {tab === "todo" ? (
+        groups.length === 0 ? (
+          archived.length > 0 ? (
+            <div className="px-6 py-12 text-center">
+              <div className="text-lg font-bold text-zinc-900">
+                Everything is logged.
+              </div>
+              <p className="text-base text-zinc-600 mt-2">
+                Shipped transfers show up here automatically. Past entries live
+                in the Archive.
+              </p>
+            </div>
+          ) : (
+            <EmptyState
+              icon={<ClipboardIcon />}
+              title="Nothing to log yet"
+              body="Once you mark a tote Shipped in the Ship tab, every line on it lands here, grouped by the store it's going to. Enter one into POS, then check off that one row."
+            />
+          )
         ) : (
-          <div className="px-6 py-12 text-center text-base text-zinc-700 font-semibold">
-            All transfers entered. Nice work.
+          <div>
+            {groups.map((group) => {
+              const color = storeColor(group.code ?? -1);
+              const left = group.rows.length - group.loggedCount;
+              return (
+                <section key={group.key}>
+                  <div className="sticky top-0 z-10 px-4 py-2.5 bg-zinc-100/95 backdrop-blur border-y border-zinc-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold ${color.badge}`}
+                      >
+                        {group.label}
+                      </span>
+                      {group.rows[0]?.to_store_name && (
+                        <span className="text-sm text-zinc-600 truncate">
+                          {group.rows[0].to_store_name}
+                        </span>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-zinc-700">
+                      {left > 0 ? `${left} left` : "done"}
+                    </span>
+                  </div>
+                  <ul className="divide-y divide-zinc-200">
+                    {group.rows.map((row) => (
+                      <LogRow
+                        key={row.pull_line_id}
+                        row={row}
+                        enteredAt={entered.get(row.pull_line_id) ?? null}
+                        nowMs={nowMs}
+                        settings={settings}
+                        busy={busy.has(row.pull_line_id)}
+                        onLog={logRow}
+                        onUndo={undoRow}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
           </div>
         )
+      ) : archived.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardIcon />}
+          title="Archive is empty"
+          body="Transfers move here 24 hours after you log them. Nothing is ever deleted — this is the permanent record of what was entered into POS."
+        />
       ) : (
-        <ul className="divide-y divide-zinc-200">
-          {visibleRows.map((r) => {
-            const isLogged = entered.has(r.lineId);
-            return (
-              <li key={r.lineId}>
-                <button
-                  type="button"
-                  onClick={() => toggleLogged(r.lineId)}
-                  className={`w-full px-4 py-3 flex gap-3 items-start text-left active:bg-zinc-100 ${
-                    isLogged ? "bg-zinc-50" : "bg-white"
-                  }`}
-                >
-                  <Checkbox checked={isLogged} />
-                  <div className={`flex-1 min-w-0 ${isLogged ? "opacity-50" : ""}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div
-                        className={`text-base font-mono font-semibold text-zinc-900 ${
-                          isLogged ? "line-through" : ""
-                        }`}
-                      >
-                        {r.sku}
-                        {(r.color || r.size) && (
-                          <span className="text-zinc-500 font-normal">
-                            {" "}
-                            ({[r.color, r.size].filter(Boolean).join("/")})
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        className={`text-lg font-bold text-zinc-900 ${
-                          isLogged ? "line-through" : ""
-                        }`}
-                      >
-                        ×{r.qty}
-                      </div>
-                    </div>
-                    <div className="text-sm text-zinc-700 mt-1 flex items-center justify-between gap-2">
-                      <span className="font-semibold">
-                        Store {r.fromCode} → {r.toLabel}
-                      </span>
-                      <span className="text-zinc-500">
-                        {r.sentAt
-                          ? new Date(r.sentAt).toLocaleString([], {
-                              month: "numeric",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })
-                          : "—"}
-                      </span>
-                    </div>
-                    <div className="text-sm text-zinc-500 mt-1 truncate">
-                      {r.style}
-                    </div>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div>
+          <div className="px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 text-sm text-zinc-700">
+            Read-only. Logged more than 24 hours ago.
+          </div>
+          <ul className="divide-y divide-zinc-200">
+            {archived.map((row) => (
+              <ArchiveRow
+                key={row.pull_line_id}
+                row={row}
+                enteredAt={entered.get(row.pull_line_id) ?? row.entered_at}
+              />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`shrink-0 h-11 px-4 rounded-full text-sm font-semibold border ${
+        active
+          ? "bg-zinc-900 text-white border-zinc-900"
+          : "bg-white text-zinc-700 border-zinc-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function LogRow({
+  row,
+  enteredAt,
+  nowMs,
+  settings,
+  busy,
+  onLog,
+  onUndo,
+}: {
+  row: PosLogRow;
+  enteredAt: string | null;
+  nowMs: number | null;
+  settings: PosLogSettings;
+  busy: boolean;
+  onLog: (lineId: string) => void;
+  onUndo: (lineId: string) => void;
+}) {
+  const state = rowState(enteredAt, nowMs, settings);
+  const dimmed = state !== "todo";
+
+  const body = (
+    <div className={`flex-1 min-w-0 ${dimmed ? "opacity-55" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div
+          className={`text-base font-mono font-semibold text-zinc-900 ${
+            dimmed ? "line-through" : ""
+          }`}
+        >
+          {row.sku}
+          {(row.color || row.size) && (
+            <span className="text-zinc-500 font-normal">
+              {" "}
+              ({[row.color, row.size].filter(Boolean).join("/")})
+            </span>
+          )}
+        </div>
+        <div
+          className={`text-lg font-bold text-zinc-900 ${
+            dimmed ? "line-through" : ""
+          }`}
+        >
+          ×{row.quantity}
+        </div>
+      </div>
+      <div className="text-sm text-zinc-500 mt-1 truncate">{row.style_name}</div>
+      <div className="text-xs text-zinc-500 mt-1">
+        Shipped {shortTime(row.sent_at)}
+      </div>
+    </div>
+  );
+
+  if (state === "todo") {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => onLog(row.pull_line_id)}
+          disabled={busy}
+          className="w-full px-4 py-3 flex gap-3 items-start text-left bg-white active:bg-zinc-100 disabled:opacity-60"
+        >
+          <Checkbox checked={false} />
+          {body}
+        </button>
+      </li>
+    );
+  }
+
+  return (
+    <li className="px-4 py-3 bg-zinc-50">
+      <div className="flex gap-3 items-start">
+        <Checkbox checked />
+        {body}
+      </div>
+      <div className="mt-2 pl-10 flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold text-zinc-600 flex items-center gap-1.5 min-w-0">
+          {state === "locked" && <LockIcon />}
+          <span className="truncate">
+            Logged{enteredAt ? ` ${shortTime(enteredAt)}` : ""}
+            {row.entered_by_name ? ` · ${row.entered_by_name}` : ""}
+          </span>
+        </div>
+        {state === "undoable" && enteredAt && nowMs !== null && (
+          <button
+            type="button"
+            onClick={() => onUndo(row.pull_line_id)}
+            disabled={busy}
+            className="shrink-0 h-9 px-3 rounded-full text-xs font-bold bg-white text-zinc-900 border border-zinc-400 active:bg-zinc-100 disabled:opacity-50"
+          >
+            Undo ({undoSecondsLeft(enteredAt, nowMs, settings)}s)
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function ArchiveRow({
+  row,
+  enteredAt,
+}: {
+  row: PosLogRow;
+  enteredAt: string | null;
+}) {
+  const color = storeColor(row.to_store_code ?? -1);
+  return (
+    <li className="px-4 py-3 bg-white">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-base font-mono font-semibold text-zinc-700">
+          {row.sku}
+          {(row.color || row.size) && (
+            <span className="text-zinc-500 font-normal">
+              {" "}
+              ({[row.color, row.size].filter(Boolean).join("/")})
+            </span>
+          )}
+        </div>
+        <div className="text-base font-bold text-zinc-700">×{row.quantity}</div>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-bold ${color.badge}`}
+        >
+          {row.to_store_code === null
+            ? "Unassigned"
+            : row.to_store_type === "warehouse"
+              ? `Warehouse (${row.to_store_code})`
+              : `Store ${row.to_store_code}`}
+        </span>
+        <span className="text-xs text-zinc-500">
+          Logged{enteredAt ? ` ${shortTime(enteredAt)}` : ""}
+          {row.entered_by_name ? ` · ${row.entered_by_name}` : ""}
+        </span>
+      </div>
+      <div className="text-sm text-zinc-500 mt-1 truncate">{row.style_name}</div>
+    </li>
   );
 }
 
@@ -565,5 +690,46 @@ function Checkbox({ checked }: { checked: boolean }) {
         </svg>
       )}
     </div>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0"
+      aria-hidden
+    >
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0 mt-0.5 text-amber-700"
+      aria-hidden
+    >
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
   );
 }
