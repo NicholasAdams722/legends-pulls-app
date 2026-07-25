@@ -17,24 +17,26 @@ export default async function AppLayout({
   // Routed count drives the badge on the Routed tab (warehouse).
   const supabase = await createSupabaseServerClient();
   const isWarehouse = user.role === "warehouse";
+  // Seed the live nav badges with the actual pull ids (not just a count) so the
+  // client can reconcile realtime membership per id. See useNavBadges().
   const [pullsBadgeRes, routedBadgeRes] = await Promise.all([
     isWarehouse
-      ? Promise.resolve({ count: 0 })
+      ? Promise.resolve({ data: [] as { id: string }[] })
       : supabase
           .from("pulls")
-          .select("id", { count: "exact", head: true })
+          .select("id")
           .eq("from_store_id", store.id)
           .in("status", ["claimed", "packed", "to_warehouse"]),
     isWarehouse
       ? supabase
           .from("pulls")
-          .select("id", { count: "exact", head: true })
+          .select("id")
           .in("status", ["to_warehouse", "packed", "sent"])
           .eq("claimed_by_store_id", store.id)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ data: [] as { id: string }[] }),
   ]);
-  const initialPullsBadge = pullsBadgeRes.count ?? 0;
-  const initialRoutedBadge = routedBadgeRes.count ?? 0;
+  const initialPullsIds = (pullsBadgeRes.data ?? []).map((r) => r.id);
+  const initialRoutedIds = (routedBadgeRes.data ?? []).map((r) => r.id);
 
   return (
     <ToastProvider>
@@ -44,8 +46,8 @@ export default async function AppLayout({
         storeCode={store.code}
         storeName={store.name}
         userName={user.name}
-        initialPullsBadge={initialPullsBadge}
-        initialRoutedBadge={initialRoutedBadge}
+        initialPullsIds={initialPullsIds}
+        initialRoutedIds={initialRoutedIds}
       />
       <div className="flex-1 flex flex-col min-h-0 lg:ml-64">
         <header className="lg:hidden pt-safe sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-200">
@@ -91,8 +93,8 @@ export default async function AppLayout({
         <TabBar
           role={user.role}
           storeId={store.id}
-          initialPullsBadge={initialPullsBadge}
-          initialRoutedBadge={initialRoutedBadge}
+          initialPullsIds={initialPullsIds}
+          initialRoutedIds={initialRoutedIds}
         />
       </div>
     </ToastProvider>

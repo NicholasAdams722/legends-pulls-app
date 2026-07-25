@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { PullStatus, UserRole } from "@/lib/types";
-import { useToast } from "./toast";
+import type { UserRole } from "@/lib/types";
+import { useNavBadges } from "./use-nav-badges";
 import { SignOutButton } from "./sign-out-button";
 
 type Item = {
@@ -13,17 +11,6 @@ type Item = {
   label: string;
   icon: React.ReactNode;
 };
-
-const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
-  "claimed",
-  "packed",
-  "to_warehouse",
-]);
-const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
-  "to_warehouse",
-  "packed",
-  "sent",
-]);
 
 const FEED: Item = {
   href: "/feed",
@@ -74,141 +61,24 @@ export function SidebarNav({
   storeCode,
   storeName,
   userName,
-  initialPullsBadge,
-  initialRoutedBadge,
+  initialPullsIds,
+  initialRoutedIds,
 }: {
   role: UserRole;
   storeId: string;
   storeCode: number;
   storeName: string;
   userName: string;
-  initialPullsBadge: number;
-  initialRoutedBadge: number;
+  initialPullsIds: string[];
+  initialRoutedIds: string[];
 }) {
   const pathname = usePathname();
-  const toast = useToast();
-  const [pullsBadge, setPullsBadge] = useState(initialPullsBadge);
-  const [routedBadge, setRoutedBadge] = useState(initialRoutedBadge);
-
-  const seededPullsRef = useRef(initialPullsBadge);
-  useEffect(() => {
-    if (initialPullsBadge !== seededPullsRef.current) {
-      seededPullsRef.current = initialPullsBadge;
-      setPullsBadge(initialPullsBadge);
-    }
-  }, [initialPullsBadge]);
-  const seededRoutedRef = useRef(initialRoutedBadge);
-  useEffect(() => {
-    if (initialRoutedBadge !== seededRoutedRef.current) {
-      seededRoutedRef.current = initialRoutedBadge;
-      setRoutedBadge(initialRoutedBadge);
-    }
-  }, [initialRoutedBadge]);
-
-  // Realtime pulls badge (managers/admins only).
-  useEffect(() => {
-    if (role === "warehouse") return;
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel("sidebar-pulls")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "pulls",
-          filter: `from_store_id=eq.${storeId}`,
-        },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: PullStatus }).status;
-          const newStatus = (payload.new as { status?: PullStatus }).status;
-          const wasIn = oldStatus ? INFLIGHT.has(oldStatus) : false;
-          const isIn = newStatus ? INFLIGHT.has(newStatus) : false;
-          const delta = (isIn ? 1 : 0) - (wasIn ? 1 : 0);
-          if (delta !== 0) {
-            setPullsBadge((n) => Math.max(0, n + delta));
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "pulls",
-          filter: `from_store_id=eq.${storeId}`,
-        },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: PullStatus }).status;
-          if (oldStatus && INFLIGHT.has(oldStatus)) {
-            setPullsBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [role, storeId]);
-
-  // Realtime routed badge (warehouse only).
-  useEffect(() => {
-    if (role !== "warehouse") return;
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel("sidebar-routed")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "pulls" },
-        (payload) => {
-          const oldRow = payload.old as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          const newRow = payload.new as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          const wasOurs =
-            oldRow.claimed_by_store_id === storeId &&
-            !!oldRow.status &&
-            ROUTED_INFLIGHT.has(oldRow.status);
-          const isOurs =
-            newRow.claimed_by_store_id === storeId &&
-            !!newRow.status &&
-            ROUTED_INFLIGHT.has(newRow.status);
-          if (!wasOurs && isOurs) {
-            setRoutedBadge((n) => n + 1);
-            if (newRow.status === "to_warehouse") {
-              toast.show("New pull routed to warehouse");
-            }
-          } else if (wasOurs && !isOurs) {
-            setRoutedBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "pulls" },
-        (payload) => {
-          const oldRow = payload.old as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          if (
-            oldRow.claimed_by_store_id === storeId &&
-            !!oldRow.status &&
-            ROUTED_INFLIGHT.has(oldRow.status)
-          ) {
-            setRoutedBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [role, storeId, toast]);
+  const { pullsBadge, routedBadge } = useNavBadges({
+    role,
+    storeId,
+    initialPullsIds,
+    initialRoutedIds,
+  });
 
   const isWarehouse = role === "warehouse";
   const claims: Item = isWarehouse ? { ...CLAIMS, label: "Routed" } : CLAIMS;

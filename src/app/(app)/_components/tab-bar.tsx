@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { PullStatus, UserRole } from "@/lib/types";
-import { useToast } from "./toast";
+import type { UserRole } from "@/lib/types";
+import { useNavBadges } from "./use-nav-badges";
 
 type TabDef = {
   href: string;
@@ -56,159 +54,25 @@ const POS_LOG: TabDef = {
   ),
 };
 
-const INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
-  "claimed",
-  "packed",
-  "to_warehouse",
-]);
-
-const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
-  "to_warehouse",
-  "packed",
-  "sent",
-]);
-
 export function TabBar({
   role,
   storeId,
-  initialPullsBadge,
-  initialRoutedBadge,
+  initialPullsIds,
+  initialRoutedIds,
 }: {
   role: UserRole;
   storeId: string;
-  initialPullsBadge: number;
-  initialRoutedBadge: number;
+  initialPullsIds: string[];
+  initialRoutedIds: string[];
 }) {
   const pathname = usePathname();
-  const toast = useToast();
   const postActive = pathname === "/post" || pathname.startsWith("/post/");
-  const [pullsBadge, setPullsBadge] = useState(initialPullsBadge);
-  const [routedBadge, setRoutedBadge] = useState(initialRoutedBadge);
-
-  // Re-seed when server gives us a fresh count (e.g., on hard nav).
-  const seededPullsRef = useRef(initialPullsBadge);
-  useEffect(() => {
-    if (initialPullsBadge !== seededPullsRef.current) {
-      seededPullsRef.current = initialPullsBadge;
-      setPullsBadge(initialPullsBadge);
-    }
-  }, [initialPullsBadge]);
-  const seededRoutedRef = useRef(initialRoutedBadge);
-  useEffect(() => {
-    if (initialRoutedBadge !== seededRoutedRef.current) {
-      seededRoutedRef.current = initialRoutedBadge;
-      setRoutedBadge(initialRoutedBadge);
-    }
-  }, [initialRoutedBadge]);
-
-  // Realtime: adjust badge by delta on UPDATE/DELETE of this store's pulls.
-  // INSERT can't change in-flight count (new pulls are always 'available').
-  useEffect(() => {
-    if (role === "warehouse") return; // no Pulls tab for warehouse
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel("tabbar-pulls")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "pulls",
-          filter: `from_store_id=eq.${storeId}`,
-        },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: PullStatus }).status;
-          const newStatus = (payload.new as { status?: PullStatus }).status;
-          const wasIn = oldStatus ? INFLIGHT.has(oldStatus) : false;
-          const isIn = newStatus ? INFLIGHT.has(newStatus) : false;
-          const delta = (isIn ? 1 : 0) - (wasIn ? 1 : 0);
-          if (delta !== 0) {
-            setPullsBadge((n) => Math.max(0, n + delta));
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "pulls",
-          filter: `from_store_id=eq.${storeId}`,
-        },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: PullStatus }).status;
-          if (oldStatus && INFLIGHT.has(oldStatus)) {
-            setPullsBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [role, storeId]);
-
-  // Realtime: warehouse-only — listen for pulls heading to or leaving the
-  // warehouse's incoming queue (to_warehouse / packed / sent with
-  // claimed_by_store_id = warehouse). Pop a toast on first arrival.
-  useEffect(() => {
-    if (role !== "warehouse") return;
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel("tabbar-routed")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "pulls" },
-        (payload) => {
-          const oldRow = payload.old as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          const newRow = payload.new as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          const wasOurs =
-            oldRow.claimed_by_store_id === storeId &&
-            !!oldRow.status &&
-            ROUTED_INFLIGHT.has(oldRow.status);
-          const isOurs =
-            newRow.claimed_by_store_id === storeId &&
-            !!newRow.status &&
-            ROUTED_INFLIGHT.has(newRow.status);
-          if (!wasOurs && isOurs) {
-            setRoutedBadge((n) => n + 1);
-            // Only buzz on the first transition into the queue.
-            if (newRow.status === "to_warehouse") {
-              toast.show("New pull routed to warehouse");
-            }
-          } else if (wasOurs && !isOurs) {
-            setRoutedBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "pulls" },
-        (payload) => {
-          const oldRow = payload.old as {
-            status?: PullStatus;
-            claimed_by_store_id?: string | null;
-          };
-          if (
-            oldRow.claimed_by_store_id === storeId &&
-            !!oldRow.status &&
-            ROUTED_INFLIGHT.has(oldRow.status)
-          ) {
-            setRoutedBadge((n) => Math.max(0, n - 1));
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [role, storeId, toast]);
+  const { pullsBadge, routedBadge } = useNavBadges({
+    role,
+    storeId,
+    initialPullsIds,
+    initialRoutedIds,
+  });
 
   // Manager layout: Feed | Pulls | [POST FAB] | Claims | History
   // Warehouse layout: Feed | Routed | History (no post FAB, no pulls)
