@@ -51,6 +51,10 @@ export default async function PullDetailPage({
 
   if (!data) notFound();
   const pull = data as unknown as DetailPull;
+  // A real store must never reach a demo pull (or vice versa) — even by typing
+  // the URL directly. Hide cross-category pulls so they can't be viewed or
+  // claimed from here.
+  if (pull.from_store.category !== store.category) notFound();
   const isOwn = pull.from_store_id === store.id;
   const passedByMe = !!passRes.data;
   const total = totalQuantity(pull.pull_lines);

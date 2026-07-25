@@ -10,11 +10,14 @@ export type PullStatus =
   | "received"
   | "cancelled";
 
+export type StoreCategory = "production" | "demo";
+
 export type Store = {
   id: string;
   code: number;
   name: string;
   type: StoreType;
+  category: StoreCategory;
 };
 
 export type AppUser = {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { storeColor } from "@/lib/store-colors";
-import type { PullStatus, Store } from "@/lib/types";
+import type { PullStatus, Store, StoreCategory } from "@/lib/types";
 import { PullCard, type FeedPull } from "./pull-card";
 import { EmptyState, InboxIcon } from "../../_components/empty-state";
 
@@ -12,11 +12,13 @@ export function FeedList({
   initialPassedIds,
   stores,
   ownStoreId,
+  ownCategory,
 }: {
   initialPulls: FeedPull[];
   initialPassedIds: string[];
   stores: Store[];
   ownStoreId: string;
+  ownCategory: StoreCategory;
 }) {
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "soft" | "hard">("all");
@@ -72,6 +74,7 @@ export function FeedList({
             .maybeSingle();
           if (!data) return;
           const fresh = data as unknown as FeedPull;
+          if (fresh.from_store.category !== ownCategory) return;
           setPulls((prev) =>
             prev.some((p) => p.id === fresh.id) ? prev : [fresh, ...prev],
           );
@@ -161,7 +164,7 @@ export function FeedList({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [ownStoreId]);
+  }, [ownStoreId, ownCategory]);
 
   const filtered = useMemo(() => {
     return pulls.filter((p) => {

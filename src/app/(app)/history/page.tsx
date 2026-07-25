@@ -6,7 +6,7 @@ import { HistoryView, type HistoryPull } from "./_components/history-view";
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
-  await requireAppUser();
+  const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
   const [pullsRes, storesRes] = await Promise.all([
@@ -24,10 +24,20 @@ export default async function HistoryPage() {
       .order("received_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(500),
-    supabase.from("stores").select("*").order("code"),
+    // Store filter dropdown: own category only, so demo stores never appear.
+    supabase
+      .from("stores")
+      .select("*")
+      .eq("category", store.category)
+      .order("code"),
   ]);
 
-  const pulls = (pullsRes.data ?? []) as unknown as HistoryPull[];
+  // Keep history inside the user's category — a real store never sees demo
+  // pulls, and vice versa. Filtered here (category lives on the joined store,
+  // not on pulls) to mirror the feed.
+  const pulls = ((pullsRes.data ?? []) as unknown as HistoryPull[]).filter(
+    (p) => p.from_store?.category === store.category,
+  );
   const stores = (storesRes.data ?? []) as Store[];
 
   return (

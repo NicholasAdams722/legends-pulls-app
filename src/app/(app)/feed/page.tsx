@@ -21,16 +21,23 @@ export default async function FeedPage() {
       .in("status", ["available", "to_warehouse"])
       .order("created_at", { ascending: false }),
     supabase.from("pull_passes").select("pull_id").eq("store_id", store.id),
-    supabase.from("stores").select("*").order("code"),
+    supabase
+      .from("stores")
+      .select("*")
+      .eq("category", store.category)
+      .order("code"),
   ]);
 
-  // A pull this store has passed on now STAYS in the feed marked "Passed"
-  // (still claimable while available). Pulls that peer consensus routed to
-  // the warehouse only stay if this store passed on them (shown as "Routed",
-  // non-actionable); an unpassed to_warehouse pull is the originating store's
-  // own and belongs in My Pulls, so it is filtered out here.
+  // Keep the feed inside the current user's category so demo activity
+  // never leaks into production and vice versa. A pull this store has passed
+  // on now STAYS in the feed marked "Passed" (still claimable while
+  // available). Pulls that peer consensus routed to the warehouse only stay
+  // if this store passed on them (shown as "Routed", non-actionable); an
+  // unpassed to_warehouse pull is the originating store's own and belongs in
+  // My Pulls, so it is filtered out here.
   const passedIds = new Set((passesRes.data ?? []).map((p) => p.pull_id));
   const pulls = ((pullsRes.data ?? []) as unknown as FeedPull[]).filter((p) => {
+    if (p.from_store.category !== store.category) return false;
     if (p.status === "available") return true;
     return p.status === "to_warehouse" && passedIds.has(p.id);
   });
@@ -43,6 +50,7 @@ export default async function FeedPage() {
         initialPassedIds={[...passedIds]}
         stores={stores}
         ownStoreId={store.id}
+        ownCategory={store.category}
       />
     </div>
   );

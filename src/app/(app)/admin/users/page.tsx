@@ -9,13 +9,19 @@ import { UserRow } from "./_components/user-row";
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const { user: me } = await requireAppUser();
+  const { user: me, store } = await requireAppUser();
   if (me.role !== "admin") redirect("/feed");
 
   const supabase = await createSupabaseServerClient();
   const [usersRes, storesRes] = await Promise.all([
     supabase.from("users").select("*").order("name"),
-    supabase.from("stores").select("*").order("code"),
+    // Only stores in the admin's own category — demo stores are hidden from
+    // production admins so they can't be picked for store assignment.
+    supabase
+      .from("stores")
+      .select("*")
+      .eq("category", store.category)
+      .order("code"),
   ]);
 
   const users = (usersRes.data ?? []) as AppUser[];

@@ -9,9 +9,12 @@ export default async function SignupPage() {
   // Use admin client so an unauthenticated visitor can still see the
   // store list (RLS on `stores` requires authenticated).
   const admin = createSupabaseAdminClient();
+  // Real employees only ever join real (production) stores. Demo stores are
+  // never offered at signup.
   const { data } = await admin
     .from("stores")
     .select("*")
+    .eq("category", "production")
     .order("code");
   const stores = (data ?? []) as Store[];
 

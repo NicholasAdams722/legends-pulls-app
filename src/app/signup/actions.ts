@@ -34,13 +34,16 @@ export async function signUpWithCodeAction(
     return { error: "That code is already in use. Pick another." };
   }
 
-  // Look up the chosen store to set the right default role
+  // Look up the chosen store to set the right default role. Guard against a
+  // crafted request targeting a demo store even though the UI never lists one.
   const { data: store } = await admin
     .from("stores")
-    .select("type")
+    .select("type, category")
     .eq("id", storeId)
     .maybeSingle();
-  if (!store) return { error: "Pick a valid store." };
+  if (!store || store.category !== "production") {
+    return { error: "Pick a valid store." };
+  }
   const role: "manager" | "warehouse" = store.type === "warehouse"
     ? "warehouse"
     : "manager";
