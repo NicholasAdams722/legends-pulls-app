@@ -1,56 +1,74 @@
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Store } from "@/lib/types";
-import { FeedList } from "./_components/feed-list";
+import { FeedList, type AvailableSeed } from "./_components/feed-list";
 import type { FeedPull } from "./_components/pull-card";
 
 export const dynamic = "force-dynamic";
+
+const FULL_SELECT = `id, photo_urls, style_name, good_type, description, status,
+  from_store:stores!pulls_from_store_id_fkey(*),
+  pull_lines(*)`;
 
 export default async function FeedPage() {
   const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
-  const [pullsRes, passesRes, storesRes] = await Promise.all([
-    supabase
-      .from("pulls")
-      .select(
-        `id, photo_urls, style_name, good_type, description, status,
-         from_store:stores!pulls_from_store_id_fkey(*),
-         pull_lines(*)`,
-      )
-      .in("status", ["available", "to_warehouse"])
-      .order("created_at", { ascending: false }),
+  // Pills = retail stores in the viewer's own category (demo already hidden).
+  // The warehouse doesn't post claimable pulls, so it gets no pill.
+  const { data: storesData } = await supabase
+    .from("stores")
+    .select("*")
+    .eq("category", store.category)
+    .order("code");
+  const stores = ((storesData ?? []) as Store[]).filter(
+    (s) => s.type === "retail",
+  );
+  const pillIds = stores.map((s) => s.id);
+
+  // Default selection = the viewer's own store so they see their own inventory
+  // immediately; fall back to the first pill (e.g. a warehouse user, whose own
+  // store isn't a pill).
+  const selectedStoreId = pillIds.includes(store.id)
+    ? store.id
+    : (pillIds[0] ?? "");
+
+  const [listRes, availRes, passesRes] = await Promise.all([
+    // Only the selected store's available pulls are loaded up front (full
+    // objects). Other stores load on demand when their pill is tapped.
+    selectedStoreId
+      ? supabase
+          .from("pulls")
+          .select(FULL_SELECT)
+          .eq("status", "available")
+          .eq("from_store_id", selectedStoreId)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    // Lightweight per-store availability seed for the pill counters: just
+    // id + from_store_id for every in-category available pull. No photos/lines.
+    pillIds.length
+      ? supabase
+          .from("pulls")
+          .select("id, from_store_id")
+          .eq("status", "available")
+          .in("from_store_id", pillIds)
+      : Promise.resolve({ data: [] }),
     supabase.from("pull_passes").select("pull_id").eq("store_id", store.id),
-    supabase
-      .from("stores")
-      .select("*")
-      .eq("category", store.category)
-      .order("code"),
   ]);
 
-  // Keep the feed inside the current user's category so demo activity
-  // never leaks into production and vice versa. A pull this store has passed
-  // on now STAYS in the feed marked "Passed" (still claimable while
-  // available). Pulls that peer consensus routed to the warehouse only stay
-  // if this store passed on them (shown as "Routed", non-actionable); an
-  // unpassed to_warehouse pull is the originating store's own and belongs in
-  // My Pulls, so it is filtered out here.
-  const passedIds = new Set((passesRes.data ?? []).map((p) => p.pull_id));
-  const pulls = ((pullsRes.data ?? []) as unknown as FeedPull[]).filter((p) => {
-    if (p.from_store.category !== store.category) return false;
-    if (p.status === "available") return true;
-    return p.status === "to_warehouse" && passedIds.has(p.id);
-  });
-  const stores = (storesRes.data ?? []) as Store[];
+  const initialListPulls = (listRes.data ?? []) as unknown as FeedPull[];
+  const initialAvailable = (availRes.data ?? []) as AvailableSeed[];
+  const initialPassedIds = (passesRes.data ?? []).map((p) => p.pull_id);
 
   return (
     <div>
       <FeedList
-        initialPulls={pulls}
-        initialPassedIds={[...passedIds]}
         stores={stores}
         ownStoreId={store.id}
-        ownCategory={store.category}
+        initialSelectedStoreId={selectedStoreId}
+        initialListPulls={initialListPulls}
+        initialAvailable={initialAvailable}
+        initialPassedIds={initialPassedIds}
       />
     </div>
   );
