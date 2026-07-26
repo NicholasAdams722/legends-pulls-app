@@ -59,19 +59,22 @@ export function TabBar({
   storeId,
   initialPullsIds,
   initialRoutedIds,
+  initialClaimsIds,
 }: {
   role: UserRole;
   storeId: string;
   initialPullsIds: string[];
   initialRoutedIds: string[];
+  initialClaimsIds: string[];
 }) {
   const pathname = usePathname();
   const postActive = pathname === "/post" || pathname.startsWith("/post/");
-  const { pullsBadge, routedBadge } = useNavBadges({
+  const { pullsBadge, routedBadge, claimsBadge } = useNavBadges({
     role,
     storeId,
     initialPullsIds,
     initialRoutedIds,
+    initialClaimsIds,
   });
 
   // Manager layout: Feed | Pulls | [POST FAB] | Claims | History
@@ -121,7 +124,11 @@ export function TabBar({
             tab={tab}
             pathname={pathname}
             badge={
-              isWarehouse && tab.href === "/claims" ? routedBadge : 0
+              tab.href === "/claims"
+                ? isWarehouse
+                  ? routedBadge
+                  : claimsBadge
+                : 0
             }
           />
         ))}

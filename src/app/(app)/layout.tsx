@@ -19,7 +19,7 @@ export default async function AppLayout({
   const isWarehouse = user.role === "warehouse";
   // Seed the live nav badges with the actual pull ids (not just a count) so the
   // client can reconcile realtime membership per id. See useNavBadges().
-  const [pullsBadgeRes, routedBadgeRes] = await Promise.all([
+  const [pullsBadgeRes, routedBadgeRes, claimsBadgeRes] = await Promise.all([
     isWarehouse
       ? Promise.resolve({ data: [] as { id: string }[] })
       : supabase
@@ -34,9 +34,19 @@ export default async function AppLayout({
           .in("status", ["to_warehouse", "packed", "sent"])
           .eq("claimed_by_store_id", store.id)
       : Promise.resolve({ data: [] as { id: string }[] }),
+    // My Claims: pulls this store has claimed that are still in progress
+    // (claimed/packed/sent). Warehouse uses the Routed badge instead.
+    isWarehouse
+      ? Promise.resolve({ data: [] as { id: string }[] })
+      : supabase
+          .from("pulls")
+          .select("id")
+          .eq("claimed_by_store_id", store.id)
+          .in("status", ["claimed", "packed", "sent"]),
   ]);
   const initialPullsIds = (pullsBadgeRes.data ?? []).map((r) => r.id);
   const initialRoutedIds = (routedBadgeRes.data ?? []).map((r) => r.id);
+  const initialClaimsIds = (claimsBadgeRes.data ?? []).map((r) => r.id);
 
   return (
     <ToastProvider>
@@ -48,6 +58,7 @@ export default async function AppLayout({
         userName={user.name}
         initialPullsIds={initialPullsIds}
         initialRoutedIds={initialRoutedIds}
+        initialClaimsIds={initialClaimsIds}
       />
       <div className="flex-1 flex flex-col min-h-0 lg:ml-64">
         <header className="lg:hidden pt-safe sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-200">
@@ -95,6 +106,7 @@ export default async function AppLayout({
           storeId={store.id}
           initialPullsIds={initialPullsIds}
           initialRoutedIds={initialRoutedIds}
+          initialClaimsIds={initialClaimsIds}
         />
       </div>
     </ToastProvider>

@@ -17,6 +17,13 @@ const ROUTED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
   "packed",
   "sent",
 ]);
+// Pulls THIS store has claimed that are still in progress — not yet received
+// (drives the My Claims badge). Matches the My Claims page query exactly.
+const CLAIMED_INFLIGHT: ReadonlySet<PullStatus> = new Set<PullStatus>([
+  "claimed",
+  "packed",
+  "sent",
+]);
 
 /**
  * Live nav badge counts, shared by the mobile tab bar and the desktop sidebar.
@@ -42,12 +49,14 @@ export function useNavBadges({
   storeId,
   initialPullsIds,
   initialRoutedIds,
+  initialClaimsIds,
 }: {
   role: "manager" | "warehouse" | "admin";
   storeId: string;
   initialPullsIds: string[];
   initialRoutedIds: string[];
-}): { pullsBadge: number; routedBadge: number } {
+  initialClaimsIds: string[];
+}): { pullsBadge: number; routedBadge: number; claimsBadge: number } {
   const toast = useToast();
   const isWarehouse = role === "warehouse";
   // Unique per component instance so the tab bar and sidebar (both mounted, one
@@ -60,11 +69,15 @@ export function useNavBadges({
   const [routedIds, setRoutedIds] = useState<Set<string>>(
     () => new Set(initialRoutedIds),
   );
+  const [claimsIds, setClaimsIds] = useState<Set<string>>(
+    () => new Set(initialClaimsIds),
+  );
 
   // Refs mirror the sets so realtime handlers read current membership without
   // re-subscribing, and stay authoritative across rapid events in one tick.
   const pullsRef = useRef(pullsIds);
   const routedRef = useRef(routedIds);
+  const claimsRef = useRef(claimsIds);
 
   // Re-seed from the server on new initial data (e.g. hard nav re-renders the
   // layout). Reference identity of the array changes when the server refetches.
@@ -85,6 +98,15 @@ export function useNavBadges({
     routedRef.current = next;
     setRoutedIds(next);
   }, [initialRoutedIds]);
+
+  const seededClaimsRef = useRef(initialClaimsIds);
+  useEffect(() => {
+    if (initialClaimsIds === seededClaimsRef.current) return;
+    seededClaimsRef.current = initialClaimsIds;
+    const next = new Set(initialClaimsIds);
+    claimsRef.current = next;
+    setClaimsIds(next);
+  }, [initialClaimsIds]);
 
   // Pulls badge (managers/admins): pulls from this store awaiting pack/ship.
   useEffect(() => {
@@ -162,8 +184,51 @@ export function useNavBadges({
     };
   }, [isWarehouse, storeId, instanceId, toast]);
 
+  // My Claims badge (managers/admins): pulls this store has claimed that are
+  // still in progress. Unfiltered on purpose — a server-side
+  // claimed_by_store_id filter would DROP the undo-claim event (the new row's
+  // claimed_by becomes null, no longer matching the filter), leaving the badge
+  // stale. We reconcile from payload.new's claimed_by_store_id in JS instead.
+  useEffect(() => {
+    if (isWarehouse) return;
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`nav-claims-${instanceId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pulls" },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            status?: PullStatus;
+            claimed_by_store_id?: string | null;
+          };
+          if (!row.id) return;
+          const ours =
+            row.claimed_by_store_id === storeId &&
+            !!row.status &&
+            CLAIMED_INFLIGHT.has(row.status);
+          const has = claimsRef.current.has(row.id);
+          if (ours === has) return;
+          const next = new Set(claimsRef.current);
+          if (ours) next.add(row.id);
+          else next.delete(row.id);
+          claimsRef.current = next;
+          setClaimsIds(next);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isWarehouse, storeId, instanceId]);
+
   return useMemo(
-    () => ({ pullsBadge: pullsIds.size, routedBadge: routedIds.size }),
-    [pullsIds, routedIds],
+    () => ({
+      pullsBadge: pullsIds.size,
+      routedBadge: routedIds.size,
+      claimsBadge: claimsIds.size,
+    }),
+    [pullsIds, routedIds, claimsIds],
   );
 }

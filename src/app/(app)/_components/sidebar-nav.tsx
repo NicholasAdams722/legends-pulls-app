@@ -63,6 +63,7 @@ export function SidebarNav({
   userName,
   initialPullsIds,
   initialRoutedIds,
+  initialClaimsIds,
 }: {
   role: UserRole;
   storeId: string;
@@ -71,13 +72,15 @@ export function SidebarNav({
   userName: string;
   initialPullsIds: string[];
   initialRoutedIds: string[];
+  initialClaimsIds: string[];
 }) {
   const pathname = usePathname();
-  const { pullsBadge, routedBadge } = useNavBadges({
+  const { pullsBadge, routedBadge, claimsBadge } = useNavBadges({
     role,
     storeId,
     initialPullsIds,
     initialRoutedIds,
+    initialClaimsIds,
   });
 
   const isWarehouse = role === "warehouse";
@@ -106,8 +109,10 @@ export function SidebarNav({
           const badge =
             it.href === "/pulls"
               ? pullsBadge
-              : isWarehouse && it.href === "/claims"
-                ? routedBadge
+              : it.href === "/claims"
+                ? isWarehouse
+                  ? routedBadge
+                  : claimsBadge
                 : 0;
           return (
             <Link
