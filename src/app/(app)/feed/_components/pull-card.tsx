@@ -14,17 +14,30 @@ export type FeedPull = {
   pull_lines: PullLine[];
 };
 
-export function PullCard({ pull, passed }: { pull: FeedPull; passed?: boolean }) {
+export function PullCard({
+  pull,
+  passed,
+  storeParam,
+}: {
+  pull: FeedPull;
+  passed?: boolean;
+  /** The feed's currently-selected store pill, carried so claim/pass returns
+   *  the user to this same store instead of resetting to their own. */
+  storeParam?: string;
+}) {
   const total = totalQuantity(pull.pull_lines);
   const breakdown = variantBreakdown(pull.pull_lines);
   const c = storeColor(pull.from_store.code);
   // A passed pull that peer consensus has routed to the warehouse is no longer
   // claimable — show it as "Routed" rather than the actionable "Passed" state.
   const routed = pull.status === "to_warehouse";
+  const href = storeParam
+    ? `/feed/${pull.id}?store=${encodeURIComponent(storeParam)}`
+    : `/feed/${pull.id}`;
 
   return (
     <Link
-      href={`/feed/${pull.id}`}
+      href={href}
       className={`block rounded-xl overflow-hidden bg-white border border-zinc-200 border-l-4 shadow-sm ${c.border} ${
         passed ? "opacity-75" : ""
       }`}

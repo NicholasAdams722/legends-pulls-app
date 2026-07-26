@@ -23,10 +23,13 @@ type DetailPull = {
 
 export default async function PullDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ pullId: string }>;
+  searchParams: Promise<{ store?: string }>;
 }) {
   const { pullId } = await params;
+  const { store: storeParam } = await searchParams;
   const { store } = await requireAppUser();
   const supabase = await createSupabaseServerClient();
 
@@ -58,12 +61,17 @@ export default async function PullDetailPage({
   const isOwn = pull.from_store_id === store.id;
   const passedByMe = !!passRes.data;
   const total = totalQuantity(pull.pull_lines);
+  // Preserve the store the user was browsing so Back / claim / pass all return
+  // to that same pill. feed/page validates it, so passing it through raw is safe.
+  const backToFeed = storeParam
+    ? `/feed?store=${encodeURIComponent(storeParam)}`
+    : "/feed";
 
   return (
     <div className="flex flex-col">
       <div className="px-2 pt-2 pb-1">
         <Link
-          href="/feed"
+          href={backToFeed}
           className="inline-flex items-center gap-1 h-12 px-3 text-base font-semibold text-zinc-800 -ml-1"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -152,7 +160,11 @@ export default async function PullDetailPage({
             You posted this pull. Manage it from My Pulls.
           </div>
         ) : (
-          <PullActions pullId={pull.id} passed={passedByMe} />
+          <PullActions
+            pullId={pull.id}
+            passed={passedByMe}
+            backToFeed={backToFeed}
+          />
         )}
       </div>
     </div>

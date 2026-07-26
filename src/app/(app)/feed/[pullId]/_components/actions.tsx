@@ -16,9 +16,13 @@ const RPC: Record<Action, string> = {
 export function PullActions({
   pullId,
   passed = false,
+  backToFeed = "/feed",
 }: {
   pullId: string;
   passed?: boolean;
+  /** Where to return after an action — carries the browsed store so the user
+   *  lands back on the same pill (e.g. "/feed?store=<id>"). */
+  backToFeed?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -39,14 +43,14 @@ export function PullActions({
       }
       if (action === "claim") {
         toast.show("Claimed — find it in your Claims tab");
-        router.push("/feed");
       } else if (action === "pass") {
         toast.show("Passed");
-        router.push("/feed");
       } else {
-        // Undo pass: stay on the detail page so the store can re-decide.
         toast.show("Pass undone");
       }
+      // Return to the store the user was browsing so they can keep working
+      // through its inventory, instead of resetting to their own store.
+      router.push(backToFeed);
       router.refresh();
     } finally {
       setBusy(null);

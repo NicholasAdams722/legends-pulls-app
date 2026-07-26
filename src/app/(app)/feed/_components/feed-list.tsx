@@ -351,7 +351,12 @@ export function FeedList({
       ) : (
         <div className="p-3 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4 lg:p-4 xl:grid-cols-5">
           {visible.map((p) => (
-            <PullCard key={p.id} pull={p} passed={passedIds.has(p.id)} />
+            <PullCard
+              key={p.id}
+              pull={p}
+              passed={passedIds.has(p.id)}
+              storeParam={selectedStoreId}
+            />
           ))}
         </div>
       )}

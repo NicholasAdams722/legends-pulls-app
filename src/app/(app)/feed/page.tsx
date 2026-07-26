@@ -10,8 +10,13 @@ const FULL_SELECT = `id, photo_urls, style_name, good_type, description, status,
   from_store:stores!pulls_from_store_id_fkey(*),
   pull_lines(*)`;
 
-export default async function FeedPage() {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ store?: string }>;
+}) {
   const { store } = await requireAppUser();
+  const { store: storeParam } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
   // Pills = retail stores in the viewer's own category (demo already hidden).
@@ -26,12 +31,19 @@ export default async function FeedPage() {
   );
   const pillIds = stores.map((s) => s.id);
 
-  // Default selection = the viewer's own store so they see their own inventory
-  // immediately; fall back to the first pill (e.g. a warehouse user, whose own
-  // store isn't a pill).
-  const selectedStoreId = pillIds.includes(store.id)
-    ? store.id
-    : (pillIds[0] ?? "");
+  // Selection precedence:
+  //  1. ?store=<id> when it's a VALID in-category pill — this preserves the
+  //     store the user was browsing when they clicked into a pull, so claim/
+  //     pass returns them here. Validating against pillIds keeps demo/other-
+  //     category ids from ever being selectable.
+  //  2. otherwise the viewer's own store (their inventory up front),
+  //  3. otherwise the first pill (e.g. a warehouse user, whose own store
+  //     isn't a pill).
+  const requestedStoreId =
+    storeParam && pillIds.includes(storeParam) ? storeParam : null;
+  const selectedStoreId =
+    requestedStoreId ??
+    (pillIds.includes(store.id) ? store.id : (pillIds[0] ?? ""));
 
   const [listRes, availRes, passesRes] = await Promise.all([
     // Only the selected store's available pulls are loaded up front (full
