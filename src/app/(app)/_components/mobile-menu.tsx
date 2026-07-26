@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -80,12 +81,18 @@ export function MobileMenu({
         </svg>
       </button>
 
-      {open && (
-        <div
-          className="lg:hidden fixed inset-0 z-40"
-          onClick={close}
-          aria-hidden
-        >
+      {/* Portaled to <body> so it escapes the sticky, backdrop-blurred app
+          header's stacking context — otherwise the panel's z-index is capped
+          and the feed's sticky pill/filter bar (also a stacking context) paints
+          over it. `open` starts false, so this branch never runs during SSR and
+          document.body is only touched on the client after interaction. */}
+      {open &&
+        createPortal(
+          <div
+            className="lg:hidden fixed inset-0 z-[60]"
+            onClick={close}
+            aria-hidden
+          >
           <div className="absolute inset-0 bg-zinc-900/20" />
           <div
             role="menu"
@@ -150,8 +157,9 @@ export function MobileMenu({
               {busy ? "Signing out…" : "Logout"}
             </button>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
