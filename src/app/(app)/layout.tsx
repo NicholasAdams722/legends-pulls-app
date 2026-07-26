@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TabBar } from "./_components/tab-bar";
 import { SidebarNav } from "./_components/sidebar-nav";
-import { SignOutButton } from "./_components/sign-out-button";
+import { MobileMenu } from "./_components/mobile-menu";
 import { ToastProvider } from "./_components/toast";
 
 export default async function AppLayout({
@@ -68,33 +67,7 @@ export default async function AppLayout({
               <span className="text-zinc-500 font-normal"> · {store.name}</span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <div className="text-xs text-zinc-500 truncate max-w-[6rem]">
-                {user.name}
-              </div>
-              <Link
-                href="/help"
-                aria-label="How to use this app"
-                className="w-10 h-10 flex items-center justify-center text-zinc-600 active:text-zinc-900"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7" />
-                  <path d="M12 17h.01" />
-                </svg>
-              </Link>
-              {user.role === "admin" && (
-                <Link
-                  href="/admin/users"
-                  aria-label="Admin"
-                  className="w-10 h-10 flex items-center justify-center text-zinc-600 active:text-zinc-900"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-                  </svg>
-                </Link>
-              )}
-              <SignOutButton />
+              <MobileMenu userName={user.name} isAdmin={user.role === "admin"} />
             </div>
           </div>
         </header>
